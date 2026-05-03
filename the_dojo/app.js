@@ -273,34 +273,72 @@
     });
   }
 
-  function cleanupOldServiceWorkers() {
-    window.addEventListener("load", () => {
-      const tasks = [];
+  function readSessionFlag(key) {
+    try {
+      return window.sessionStorage.getItem(key);
+    } catch (error) {
+      return null;
+    }
+  }
 
-      if ("serviceWorker" in navigator) {
-        tasks.push(
-          navigator.serviceWorker.getRegistrations().then((registrations) => (
-            Promise.all(registrations
-              .filter((registration) => registration.scope.includes("/the_dojo/"))
-              .map((registration) => registration.unregister()))
-          ))
-        );
-      }
+  function writeSessionFlag(key, value) {
+    try {
+      window.sessionStorage.setItem(key, value);
+    } catch (error) {
+      // Session storage can be unavailable in restrictive browser modes.
+    }
+  }
 
-      if ("caches" in window) {
-        tasks.push(
-          caches.keys().then((keys) => (
-            Promise.all(keys
-              .filter((key) => key.startsWith("the-dojo-"))
-              .map((key) => caches.delete(key)))
-          ))
-        );
-      }
+  function clearSessionFlag(key) {
+    try {
+      window.sessionStorage.removeItem(key);
+    } catch (error) {
+      // Session storage can be unavailable in restrictive browser modes.
+    }
+  }
 
-      Promise.all(tasks).catch((error) => {
-        console.warn("Old cache cleanup failed.", error);
-      });
-    });
+  async function cleanupOldServiceWorkers() {
+    const reloadKey = "the-dojo:sw-clean-reload";
+    let hadDojoWorker = false;
+
+    if ("serviceWorker" in navigator) {
+      const controller = navigator.serviceWorker.controller;
+      hadDojoWorker = Boolean(controller && controller.scriptURL.includes("/the_dojo/"));
+
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      const dojoRegistrations = registrations.filter((registration) => registration.scope.includes("/the_dojo/"));
+      hadDojoWorker = hadDojoWorker || dojoRegistrations.length > 0;
+      await Promise.all(dojoRegistrations.map((registration) => registration.unregister()));
+    }
+
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      const dojoKeys = keys.filter((key) => key.startsWith("the-dojo-"));
+      hadDojoWorker = hadDojoWorker || dojoKeys.length > 0;
+      await Promise.all(dojoKeys.map((key) => caches.delete(key)));
+    }
+
+    if (hadDojoWorker && readSessionFlag(reloadKey) !== "done") {
+      writeSessionFlag(reloadKey, "done");
+      window.location.replace(window.location.href);
+      return false;
+    }
+
+    clearSessionFlag(reloadKey);
+    return true;
+  }
+
+  async function prepareStartup() {
+    try {
+      return await withTimeout(
+        cleanupOldServiceWorkers(),
+        5000,
+        "Old app cache cleanup timed out."
+      );
+    } catch (error) {
+      console.warn("Old cache cleanup failed.", error);
+      return true;
+    }
   }
 
   function sortedEntriesForExercise(exerciseId) {
@@ -1717,7 +1755,7 @@
       }
     });
 
-    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    supabaseClient.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         currentUser = null;
         state = emptyState();
@@ -1725,12 +1763,13 @@
         selectedExerciseId = null;
         editingExerciseId = null;
         render();
+        return;
       }
 
-      if (event === "SIGNED_IN" && session && session.user && session.user.id !== (currentUser && currentUser.id)) {
+      if (session && session.user) {
         currentUser = session.user;
         syncEntryFormModeFromUser();
-        await loadRemoteState();
+        renderSettingsContent();
       }
     });
 
@@ -1828,6 +1867,9 @@
   window.addEventListener("online", () => showToast("Online."));
   window.addEventListener("offline", () => showToast("Offline. Supabase data needs network."));
 
-  cleanupOldServiceWorkers();
-  bootstrap();
+  prepareStartup().then((ready) => {
+    if (ready) {
+      bootstrap();
+    }
+  });
 })();
