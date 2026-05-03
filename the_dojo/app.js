@@ -3,13 +3,14 @@
 
   const SUPABASE_URL = "https://dyxqnvokqpwxgtqothcr.supabase.co";
   const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_PZg_kpXc1g88DtTP6IJ6ew_WeYpbNpu";
-  const SCHEMA_VERSION = 3;
+  const SCHEMA_VERSION = 4;
 
   const root = document.getElementById("app-root");
   const screenLabel = document.getElementById("screen-label");
+  const moreButton = document.getElementById("more-button");
   const exportButton = document.getElementById("export-button");
   const importInput = document.getElementById("import-input");
-  const importButton = document.querySelector(".file-button");
+  const actionsDialog = document.getElementById("actions-dialog");
   const sessionActions = document.getElementById("session-actions");
   const toast = document.getElementById("toast");
   const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -118,8 +119,9 @@
         exerciseId: String(entry.exerciseId),
         date: String(entry.date),
         resistance: String(entry.resistance || ""),
+        sets: String(entry.sets || ""),
         reps: String(entry.reps || ""),
-        modifier: String(entry.modifier || ""),
+        notes: String(entry.notes || entry.modifier || ""),
         createdAt: String(entry.createdAt || nowIso()),
         updatedAt: String(entry.updatedAt || entry.createdAt || nowIso())
       }));
@@ -149,8 +151,9 @@
       exerciseId: row.exercise_id,
       date: row.date,
       resistance: row.resistance || "",
+      sets: row.sets || "",
       reps: row.reps || "",
-      modifier: row.modifier || "",
+      notes: row.notes || "",
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -253,11 +256,13 @@
     if (entry.resistance) {
       pieces.push(entry.resistance);
     }
-    if (entry.reps) {
-      pieces.push(`${entry.reps} reps`);
+    if (entry.sets || entry.reps) {
+      const setText = entry.sets ? `${entry.sets} ${entry.sets === "1" ? "set" : "sets"}` : "";
+      const repText = entry.reps ? `${entry.reps} reps` : "";
+      pieces.push([setText, repText].filter(Boolean).join(" x "));
     }
-    if (entry.modifier) {
-      pieces.push(entry.modifier);
+    if (entry.notes) {
+      pieces.push(entry.notes);
     }
 
     const detail = pieces.length ? pieces.join(" / ") : "Logged";
@@ -289,8 +294,8 @@
 
   function renderHeader() {
     const signedIn = Boolean(currentUser);
-    exportButton.hidden = !signedIn;
-    importButton.hidden = !signedIn;
+    moreButton.hidden = !signedIn;
+    moreButton.setAttribute("aria-expanded", "false");
 
     if (!sessionActions) {
       return;
@@ -316,7 +321,7 @@
       <section class="auth-panel">
         <div class="auth-copy">
           <h2>Your exercise log, synced by account.</h2>
-          <p>Register or sign in to load your exercises from Supabase.</p>
+          <p>Register or sign in to load your training log from Supabase.</p>
         </div>
         <div class="auth-forms">
           <form id="sign-in-form" class="auth-form" autocomplete="on">
@@ -450,14 +455,26 @@
     root.innerHTML = `
       <section class="panel">
         <div class="detail-head">
-          <button class="icon-button" type="button" aria-label="Back to exercises" data-action="back">&lt;</button>
+          <button class="icon-button" type="button" aria-label="Back to exercises" data-action="back">&larr;</button>
           <div class="detail-title">
             <h2>${escapeHtml(exercise.name)}</h2>
             ${exercise.tags.length ? renderTagChips(exercise.tags) : `<p class="exercise-meta">No tags</p>`}
             <div class="detail-actions">
-              <button class="button button-secondary" type="button" data-action="rename-exercise">Rename</button>
-              <button class="button button-secondary" type="button" data-action="edit-tags">Tags</button>
-              <button class="button button-danger" type="button" data-action="delete-exercise">Delete</button>
+              <details class="edit-exercise-panel">
+                <summary>Edit</summary>
+                <form id="exercise-edit-form" class="edit-exercise-form" autocomplete="off">
+                  <label class="field">
+                    <span>Name</span>
+                    <input class="text-input" name="name" type="text" maxlength="80" value="${escapeHtml(exercise.name)}" required>
+                  </label>
+                  <label class="field">
+                    <span>Tags</span>
+                    <input class="text-input" name="tags" type="text" maxlength="120" value="${escapeHtml(exercise.tags.join(", "))}">
+                  </label>
+                  <button class="button button-primary" type="submit">Save</button>
+                </form>
+              </details>
+              <button class="icon-button danger-icon" type="button" data-action="delete-exercise" aria-label="Delete exercise">&times;</button>
             </div>
           </div>
         </div>
@@ -465,20 +482,20 @@
         <form id="entry-form" class="entry-form" autocomplete="off">
           <div class="entry-fields">
             <label class="field">
-              <span>Date</span>
-              <input class="text-input" name="date" type="date" value="${todayLocalDate()}" required>
-            </label>
-            <label class="field">
               <span>Resistance</span>
               <input class="text-input" name="resistance" type="text" inputmode="decimal" maxlength="40" placeholder="50 lb">
+            </label>
+            <label class="field">
+              <span>Sets</span>
+              <input class="text-input" name="sets" type="text" inputmode="numeric" maxlength="24" placeholder="3">
             </label>
             <label class="field">
               <span>Reps</span>
               <input class="text-input" name="reps" type="text" inputmode="numeric" maxlength="24" placeholder="10">
             </label>
             <label class="field">
-              <span>Modifier</span>
-              <input class="text-input" name="modifier" type="text" maxlength="80" placeholder="slow, assisted">
+              <span>Notes</span>
+              <input class="text-input" name="notes" type="text" maxlength="120" placeholder="slow, assisted, clean">
             </label>
           </div>
           <button class="button button-primary" type="submit">Add row</button>
@@ -496,17 +513,19 @@
           <div class="entry-row entry-header" role="row">
             <span class="table-heading" role="columnheader">Date</span>
             <span class="table-heading" role="columnheader">Resistance</span>
+            <span class="table-heading" role="columnheader">Sets</span>
             <span class="table-heading" role="columnheader">Reps</span>
-            <span class="table-heading" role="columnheader">Modifier</span>
+            <span class="table-heading" role="columnheader">Notes</span>
             <span class="table-heading" role="columnheader">Del</span>
           </div>
           ${entries.map((entry) => `
             <div class="entry-row" role="row" data-entry-id="${escapeHtml(entry.id)}">
-              <input class="text-input" aria-label="Date" type="date" data-entry-field="date" value="${escapeHtml(entry.date)}">
+              <span class="entry-date">${escapeHtml(formatDate(entry.date))}</span>
               <input class="text-input" aria-label="Resistance" type="text" inputmode="decimal" maxlength="40" data-entry-field="resistance" value="${escapeHtml(entry.resistance)}">
+              <input class="text-input" aria-label="Sets" type="text" inputmode="numeric" maxlength="24" data-entry-field="sets" value="${escapeHtml(entry.sets)}">
               <input class="text-input" aria-label="Reps" type="text" inputmode="numeric" maxlength="24" data-entry-field="reps" value="${escapeHtml(entry.reps)}">
-              <input class="text-input" aria-label="Modifier" type="text" maxlength="80" data-entry-field="modifier" value="${escapeHtml(entry.modifier)}">
-              <button class="icon-button" type="button" aria-label="Delete row" data-action="delete-entry">X</button>
+              <input class="text-input" aria-label="Notes" type="text" maxlength="120" data-entry-field="notes" value="${escapeHtml(entry.notes)}">
+              <button class="icon-button" type="button" aria-label="Delete row" data-action="delete-entry">&times;</button>
             </div>
           `).join("")}
         </div>
@@ -669,17 +688,13 @@
       return;
     }
 
-    const date = form.elements.date.value;
+    const date = todayLocalDate();
     const resistance = form.elements.resistance.value.trim();
+    const sets = form.elements.sets.value.trim();
     const reps = form.elements.reps.value.trim();
-    const modifier = form.elements.modifier.value.trim();
+    const notes = form.elements.notes.value.trim();
 
-    if (!date) {
-      showToast("Date is required.");
-      return;
-    }
-
-    if (!resistance && !reps && !modifier) {
+    if (!resistance && !sets && !reps && !notes) {
       showToast("Add at least one value.");
       return;
     }
@@ -691,8 +706,9 @@
         exercise_id: selectedExercise.id,
         date,
         resistance,
+        sets,
         reps,
-        modifier
+        notes
       })
       .select("*")
       .single();
@@ -716,7 +732,7 @@
 
     const entry = state.entries.find((item) => item.id === row.dataset.entryId);
     const field = input.dataset.entryField;
-    if (!entry || !["date", "resistance", "reps", "modifier"].includes(field)) {
+    if (!entry || !["resistance", "sets", "reps", "notes"].includes(field)) {
       return;
     }
 
@@ -730,10 +746,10 @@
     entry.updatedAt = nowIso();
 
     const columnByField = {
-      date: "date",
       resistance: "resistance",
+      sets: "sets",
       reps: "reps",
-      modifier: "modifier"
+      notes: "notes"
     };
 
     const { data, error } = await supabaseClient
@@ -755,9 +771,6 @@
     }
 
     Object.assign(entry, entryFromRow(data));
-    if (field === "date") {
-      render();
-    }
   }
 
   function handleRootClick(event) {
@@ -776,16 +789,6 @@
     if (action === "back") {
       selectedExerciseId = null;
       render();
-      return;
-    }
-
-    if (action === "rename-exercise") {
-      renameSelectedExercise();
-      return;
-    }
-
-    if (action === "edit-tags") {
-      editSelectedExerciseTags();
       return;
     }
 
@@ -966,19 +969,17 @@
     }
   }
 
-  async function renameSelectedExercise() {
+  async function handleEditExercise(event) {
+    event.preventDefault();
     const user = requireUser();
     const exercise = state.exercises.find((item) => item.id === selectedExerciseId);
     if (!exercise) {
       return;
     }
 
-    const nextName = window.prompt("Rename exercise", exercise.name);
-    if (nextName === null) {
-      return;
-    }
-
-    const name = nextName.trim();
+    const form = event.target;
+    const name = form.elements.name.value.trim();
+    const tags = parseTags(form.elements.tags.value);
     if (!name) {
       showToast("Exercise name is required.");
       return;
@@ -988,6 +989,7 @@
       .from("exercises")
       .update({
         name,
+        tags,
         updated_at: nowIso()
       })
       .eq("id", exercise.id)
@@ -1002,40 +1004,7 @@
 
     Object.assign(exercise, exerciseFromRow(data));
     render();
-    showToast("Exercise renamed.");
-  }
-
-  async function editSelectedExerciseTags() {
-    const user = requireUser();
-    const exercise = state.exercises.find((item) => item.id === selectedExerciseId);
-    if (!exercise) {
-      return;
-    }
-
-    const nextTags = window.prompt("Tags, separated by commas", exercise.tags.join(", "));
-    if (nextTags === null) {
-      return;
-    }
-
-    const { data, error } = await supabaseClient
-      .from("exercises")
-      .update({
-        tags: parseTags(nextTags),
-        updated_at: nowIso()
-      })
-      .eq("id", exercise.id)
-      .eq("user_id", user.id)
-      .select("*")
-      .single();
-
-    if (error) {
-      handleSupabaseError(error);
-      return;
-    }
-
-    Object.assign(exercise, exerciseFromRow(data));
-    render();
-    showToast("Tags updated.");
+    showToast("Exercise updated.");
   }
 
   async function deleteSelectedExercise() {
@@ -1045,7 +1014,7 @@
       return;
     }
 
-    const confirmed = window.confirm(`Delete "${exercise.name}" and all rows from your Supabase account?`);
+    const confirmed = window.confirm(`Delete "${exercise.name}" and all rows from The Dojo?`);
     if (!confirmed) {
       return;
     }
@@ -1070,7 +1039,7 @@
 
   async function deleteEntry(entryId) {
     const user = requireUser();
-    const confirmed = window.confirm("Delete this row from your Supabase account?");
+    const confirmed = window.confirm("Delete this row from The Dojo?");
     if (!confirmed) {
       return;
     }
@@ -1102,11 +1071,12 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `progress-log-${todayLocalDate()}.json`;
+    link.download = `the-dojo-${todayLocalDate()}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+    closeActionsDialog();
     showToast("Export started.");
   }
 
@@ -1120,7 +1090,7 @@
     reader.addEventListener("load", async () => {
       try {
         const incoming = normalizeImportedState(JSON.parse(String(reader.result || "")));
-        const confirmed = window.confirm("Replace all Progress Log data in your Supabase account with this import?");
+        const confirmed = window.confirm("Replace all The Dojo data in your Supabase account with this import?");
         if (!confirmed) {
           return;
         }
@@ -1173,8 +1143,9 @@
             exercise_id: idMap.get(entry.exerciseId),
             date: entry.date,
             resistance: entry.resistance,
+            sets: entry.sets,
             reps: entry.reps,
-            modifier: entry.modifier,
+            notes: entry.notes,
             created_at: entry.createdAt,
             updated_at: entry.updatedAt
           }));
@@ -1188,6 +1159,7 @@
 
         selectedExerciseId = null;
         await loadRemoteState();
+        closeActionsDialog();
         showToast("Import complete.");
       } catch (error) {
         handleSupabaseError(error);
@@ -1201,6 +1173,30 @@
       showToast("Import failed.");
     });
     reader.readAsText(file);
+  }
+
+  function openActionsDialog() {
+    if (!currentUser) {
+      return;
+    }
+
+    moreButton.setAttribute("aria-expanded", "true");
+    if (typeof actionsDialog.showModal === "function") {
+      actionsDialog.showModal();
+      return;
+    }
+
+    actionsDialog.setAttribute("open", "");
+  }
+
+  function closeActionsDialog() {
+    moreButton.setAttribute("aria-expanded", "false");
+    if (actionsDialog.open && typeof actionsDialog.close === "function") {
+      actionsDialog.close();
+      return;
+    }
+
+    actionsDialog.removeAttribute("open");
   }
 
   async function bootstrap() {
@@ -1267,6 +1263,10 @@
       handleAddEntry(event);
     }
 
+    if (event.target.id === "exercise-edit-form") {
+      handleEditExercise(event);
+    }
+
     if (event.target.id === "sign-in-form" || event.target.id === "register-form") {
       handleAuthSubmit(event);
     }
@@ -1299,6 +1299,15 @@
     });
   }
 
+  moreButton.addEventListener("click", openActionsDialog);
+  actionsDialog.addEventListener("click", (event) => {
+    if (event.target === actionsDialog) {
+      closeActionsDialog();
+    }
+  });
+  actionsDialog.addEventListener("close", () => {
+    moreButton.setAttribute("aria-expanded", "false");
+  });
   exportButton.addEventListener("click", exportData);
   importInput.addEventListener("change", () => importData(importInput.files[0]));
 

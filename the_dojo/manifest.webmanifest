@@ -1,7 +1,7 @@
 {
-  "name": "Progress Log",
-  "short_name": "Progress",
-  "description": "Personal exercise progress log.",
+  "name": "The Dojo",
+  "short_name": "Dojo",
+  "description": "Personal exercise progress tracker.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

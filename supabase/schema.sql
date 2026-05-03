@@ -17,14 +17,35 @@ create table if not exists public.exercise_entries (
   exercise_id uuid not null,
   date date not null,
   resistance text not null default '',
+  sets text not null default '',
   reps text not null default '',
-  modifier text not null default '',
+  notes text not null default '',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   foreign key (exercise_id, user_id)
     references public.exercises(id, user_id)
     on delete cascade
 );
+
+alter table public.exercise_entries
+  add column if not exists sets text not null default '';
+
+alter table public.exercise_entries
+  add column if not exists notes text not null default '';
+
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'exercise_entries'
+      and column_name = 'modifier'
+  ) then
+    execute 'update public.exercise_entries set notes = modifier where coalesce(notes, '''') = '''' and modifier is not null';
+    execute 'alter table public.exercise_entries drop column modifier';
+  end if;
+end $$;
 
 create index if not exists exercises_user_sort_idx
   on public.exercises(user_id, sort_order);

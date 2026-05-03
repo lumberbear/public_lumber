@@ -160,6 +160,12 @@ h3 {
   font-weight: 760;
 }
 
+.danger-icon {
+  border-color: var(--danger-line);
+  background: var(--danger-bg);
+  color: #ffd1cc;
+}
+
 .button:active,
 .icon-button:active,
 .exercise-open:active {
@@ -215,6 +221,33 @@ h3 {
   display: grid;
   gap: 12px;
   padding: 14px;
+}
+
+.actions-dialog {
+  width: min(calc(100% - 32px), 420px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0;
+  box-shadow: var(--shadow);
+}
+
+.actions-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.68);
+}
+
+.dialog-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .toolbar {
@@ -433,9 +466,43 @@ h3 {
 }
 
 .detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.edit-exercise-panel {
+  min-width: 0;
+}
+
+.edit-exercise-panel summary {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  font-weight: 680;
+  list-style: none;
+}
+
+.edit-exercise-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.edit-exercise-form {
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 12px;
 }
 
 .table-shell {
@@ -446,13 +513,13 @@ h3 {
 }
 
 .entry-table {
-  min-width: 620px;
+  min-width: 760px;
   display: grid;
 }
 
 .entry-row {
   display: grid;
-  grid-template-columns: 136px 128px 96px minmax(140px, 1fr) 52px;
+  grid-template-columns: 132px 126px 78px 78px minmax(160px, 1fr) 52px;
   gap: 8px;
   align-items: center;
   padding: 10px;
@@ -473,6 +540,12 @@ h3 {
 .entry-row .text-input {
   min-height: 40px;
   padding: 8px 10px;
+}
+
+.entry-date {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 650;
 }
 
 .empty-state {

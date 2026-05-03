@@ -6,8 +6,8 @@
     <meta name="theme-color" content="#0b0c0f">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Progress Log">
-    <title>Progress Log</title>
+    <meta name="apple-mobile-web-app-title" content="The Dojo">
+    <title>The Dojo</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="assets/icon-180.png">
     <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
@@ -31,15 +31,11 @@
     <div class="app-shell">
       <header class="app-header">
         <div class="title-block">
-          <h1>Progress Log</h1>
+          <h1>The Dojo</h1>
           <p id="screen-label" class="screen-label">Exercises</p>
         </div>
         <div class="header-actions" aria-label="Data actions">
-          <button id="export-button" class="button button-secondary" type="button">Export</button>
-          <label class="button button-secondary file-button">
-            Import
-            <input id="import-input" type="file" accept="application/json,.json">
-          </label>
+          <button id="more-button" class="icon-button" type="button" aria-label="More actions" aria-expanded="false">...</button>
           <div id="session-actions" class="session-actions" aria-label="Session actions"></div>
         </div>
       </header>
@@ -52,5 +48,18 @@
     </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <dialog id="actions-dialog" class="actions-dialog">
+      <form method="dialog" class="dialog-panel">
+        <div class="dialog-head">
+          <h2>Actions</h2>
+          <button class="icon-button" type="submit" aria-label="Close actions">&times;</button>
+        </div>
+        <button id="export-button" class="button button-secondary" type="button">Export JSON</button>
+        <label class="button button-secondary file-button">
+          Import JSON
+          <input id="import-input" type="file" accept="application/json,.json">
+        </label>
+      </form>
+    </dialog>
   </body>
 </html>

@@ -1,8 +1,8 @@
-# Progress Log
+# The Dojo
 
 A dark-mode, exercise-first progress tracker for personal iPhone gym use. It is a static PWA with Supabase Auth and database-backed exercise data.
 
-Progress Log supports email/password auth, drag-handle exercise ordering, comma-separated exercise tags, tag grouping on the home screen, and JSON backup/restore for the signed-in account.
+The Dojo supports email/password auth, drag-handle exercise ordering, comma-separated exercise tags, tag grouping on the home screen, and JSON backup/restore from the actions menu.
 
 ## Supabase Setup
 
@@ -13,24 +13,34 @@ https://dyxqnvokqpwxgtqothcr.supabase.co
 ```
 
 2. Open SQL Editor.
-3. Paste and run:
+3. If you already ran the old Progress Log schema and do not need to keep that test data, paste and run the contents of this file first:
+
+```text
+../supabase/wipe_dojo_data.sql
+```
+
+This drops the old exercise tables so you can start clean. It deletes all existing exercise data in this Supabase project.
+
+4. Paste and run the contents of:
 
 ```text
 ../supabase/schema.sql
 ```
 
-4. Open Authentication, then URL Configuration.
-5. Set Site URL:
+The main schema is also migration-safe for the old Phase 1 table: it adds `sets`, creates `notes`, copies existing `modifier` values into `notes`, and then removes the old `modifier` column.
+
+5. Open Authentication, then URL Configuration.
+6. Set Site URL:
 
 ```text
-https://lumberbear.github.io/public_lumber/progress_log/
+https://lumberbear.github.io/public_lumber/the_dojo/
 ```
 
-6. Add Redirect URLs:
+7. Add Redirect URLs:
 
 ```text
-http://localhost:5173/progress_log/
-https://lumberbear.github.io/public_lumber/progress_log/
+http://localhost:5173/the_dojo/
+https://lumberbear.github.io/public_lumber/the_dojo/
 ```
 
 The frontend uses the Supabase publishable key. That key is safe to ship in this static app only because Row Level Security in `supabase/schema.sql` restricts every exercise and entry row to the signed-in user.
@@ -46,7 +56,7 @@ python3 -m http.server 5173
 Open the app directly:
 
 ```text
-http://localhost:5173/progress_log/
+http://localhost:5173/the_dojo/
 ```
 
 Localhost is enough for development. Exercise data now comes from Supabase, so the app needs network access after sign-in.
@@ -61,10 +71,10 @@ Localhost is enough for development. Exercise data now comes from Supabase, so t
 6. Open the published URL:
 
 ```text
-https://lumberbear.github.io/public_lumber/progress_log/
+https://lumberbear.github.io/public_lumber/the_dojo/
 ```
 
-The repo root also redirects to Progress Log:
+The repo root also redirects to The Dojo:
 
 ```text
 https://lumberbear.github.io/public_lumber/
@@ -79,7 +89,7 @@ GitHub Pages reference: https://docs.github.com/articles/user-organization-and-p
 1. Open the GitHub Pages URL in Safari on your iPhone.
 2. Tap the Share button.
 3. Tap Add to Home Screen.
-4. Launch Progress Log once while online so the offline files can cache.
+4. Launch The Dojo once while online so the offline files can cache.
 5. Use the new Home Screen icon at the gym.
 
 Apple guide: https://support.apple.com/en-euro/guide/iphone/iphea86e5236/ios
@@ -87,9 +97,9 @@ Apple guide: https://support.apple.com/en-euro/guide/iphone/iphea86e5236/ios
 ## Data And Backup
 
 - Workout data is stored in Supabase under your signed-in user.
-- Use Export to save a JSON backup to Files or iCloud Drive.
-- Use Import to replace your current Supabase data with a previous JSON export.
-- Import deletes the current signed-in account's Progress Log data before restoring the backup.
+- Open the `...` actions menu to export a JSON backup to Files or iCloud Drive.
+- Open the `...` actions menu to import a previous JSON export.
+- Import deletes the current signed-in account's The Dojo data before restoring the backup.
 
 Service worker reference: https://developer.mozilla.org/docs/Web/API/Service_Worker_API
 

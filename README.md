@@ -1,12 +1,12 @@
 # public_lumber
 
-Public GitHub Pages repo for Progress Log.
+Public GitHub Pages repo for The Dojo.
 
-The Pages root opens [Progress Log](./progress_log/), an exercise-first gym tracker PWA backed by Supabase Auth and Postgres.
+The Pages root opens [The Dojo](./the_dojo/), an exercise-first training tracker PWA backed by Supabase Auth and Postgres.
 
 Published URLs:
 
 ```text
 https://lumberbear.github.io/public_lumber/
-https://lumberbear.github.io/public_lumber/progress_log/
+https://lumberbear.github.io/public_lumber/the_dojo/
 ```

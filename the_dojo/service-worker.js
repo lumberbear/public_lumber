@@ -1,4 +1,4 @@
-const CACHE_NAME = "progress-log-v4";
+const CACHE_NAME = "the-dojo-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
