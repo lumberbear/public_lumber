@@ -8,10 +8,10 @@
   const root = document.getElementById("app-root");
   const screenLabel = document.getElementById("screen-label");
   const moreButton = document.getElementById("more-button");
-  const exportButton = document.getElementById("export-button");
-  const importInput = document.getElementById("import-input");
+  const settingsContent = document.getElementById("settings-content");
   const actionsDialog = document.getElementById("actions-dialog");
-  const sessionActions = document.getElementById("session-actions");
+  const addExerciseDialog = document.getElementById("add-exercise-dialog");
+  const addExerciseFab = document.getElementById("add-exercise-fab");
   const toast = document.getElementById("toast");
   const dateFormatter = new Intl.DateTimeFormat(undefined, {
     month: "short",
@@ -27,24 +27,53 @@
   let toastTimer = 0;
   let authMode = "sign-in";
   let activeTagFilter = null;
-  let reloadingForController = false;
-  let recoveringFromStuck = false;
-  let entryFormMode = readEntryFormMode();
+  let activeLoadToken = 0;
+  let editingExerciseId = null;
+  let userDefaultEntryFormMode = "quick";
+  let entryFormMode = "quick";
 
-  function readEntryFormMode() {
-    try {
-      return window.localStorage.getItem("the-dojo:entry-form-mode") === "shorthand" ? "shorthand" : "quick";
-    } catch (error) {
-      return "quick";
-    }
+  function syncEntryFormModeFromUser() {
+    const fromMetadata = currentUser && currentUser.user_metadata && currentUser.user_metadata.entry_form_mode;
+    userDefaultEntryFormMode = fromMetadata === "shorthand" ? "shorthand" : "quick";
+    entryFormMode = userDefaultEntryFormMode;
   }
 
-  function setEntryFormMode(mode) {
+  function setSessionEntryFormMode(mode) {
     entryFormMode = mode === "shorthand" ? "shorthand" : "quick";
+  }
+
+  async function setUserDefaultEntryFormMode(mode) {
+    const next = mode === "shorthand" ? "shorthand" : "quick";
+    if (next === userDefaultEntryFormMode) {
+      return;
+    }
+
+    const previousDefault = userDefaultEntryFormMode;
+    const previousSessionMode = entryFormMode;
+    userDefaultEntryFormMode = next;
+    entryFormMode = next;
+    renderSettingsContent();
+    render();
+    if (!supabaseClient || !currentUser) {
+      return;
+    }
     try {
-      window.localStorage.setItem("the-dojo:entry-form-mode", entryFormMode);
+      const { data, error } = await supabaseClient.auth.updateUser({
+        data: { entry_form_mode: next }
+      });
+      if (error) {
+        throw error;
+      }
+      if (data && data.user) {
+        currentUser = data.user;
+        syncEntryFormModeFromUser();
+      }
     } catch (error) {
-      // ignore storage failures
+      userDefaultEntryFormMode = previousDefault;
+      entryFormMode = previousSessionMode;
+      renderSettingsContent();
+      render();
+      handleSupabaseError(error);
     }
   }
 
@@ -70,36 +99,6 @@
     }
 
     return { entries, errors };
-  }
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloadingForController) {
-        return;
-      }
-      reloadingForController = true;
-      window.location.reload();
-    });
-  }
-
-  async function recoverFromStuck() {
-    if (recoveringFromStuck) {
-      return;
-    }
-    recoveringFromStuck = true;
-    try {
-      if ("serviceWorker" in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(registrations.map((registration) => registration.unregister()));
-      }
-      if ("caches" in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((key) => caches.delete(key)));
-      }
-    } catch (error) {
-      console.warn("Recovery failed.", error);
-    }
-    window.location.reload();
   }
 
   function emptyState() {
@@ -261,6 +260,49 @@
     showToast(error.message || "Supabase request failed.");
   }
 
+  function withTimeout(promise, milliseconds, message) {
+    let timeoutId = 0;
+    const timeout = new Promise((_, reject) => {
+      timeoutId = window.setTimeout(() => {
+        reject(new Error(message || "Request timed out."));
+      }, milliseconds);
+    });
+
+    return Promise.race([promise, timeout]).finally(() => {
+      window.clearTimeout(timeoutId);
+    });
+  }
+
+  function cleanupOldServiceWorkers() {
+    window.addEventListener("load", () => {
+      const tasks = [];
+
+      if ("serviceWorker" in navigator) {
+        tasks.push(
+          navigator.serviceWorker.getRegistrations().then((registrations) => (
+            Promise.all(registrations
+              .filter((registration) => registration.scope.includes("/the_dojo/"))
+              .map((registration) => registration.unregister()))
+          ))
+        );
+      }
+
+      if ("caches" in window) {
+        tasks.push(
+          caches.keys().then((keys) => (
+            Promise.all(keys
+              .filter((key) => key.startsWith("the-dojo-"))
+              .map((key) => caches.delete(key)))
+          ))
+        );
+      }
+
+      Promise.all(tasks).catch((error) => {
+        console.warn("Old cache cleanup failed.", error);
+      });
+    });
+  }
+
   function sortedEntriesForExercise(exerciseId) {
     return state.entries
       .filter((entry) => entry.exerciseId === exerciseId)
@@ -376,6 +418,8 @@
 
   function render() {
     renderHeader();
+    renderFab();
+    renderSettingsContent();
 
     if (!supabaseClient) {
       renderError("Supabase did not load. Check your network connection.");
@@ -398,22 +442,47 @@
   }
 
   function renderHeader() {
-    const signedIn = Boolean(currentUser);
-    moreButton.hidden = !signedIn;
-    moreButton.setAttribute("aria-expanded", "false");
+    moreButton.hidden = !currentUser;
+    moreButton.setAttribute("aria-expanded", actionsDialog && actionsDialog.open ? "true" : "false");
+  }
 
-    if (!sessionActions) {
+  function renderFab() {
+    if (!addExerciseFab) {
       return;
     }
+    const inHome = currentUser && !selectedExerciseId;
+    addExerciseFab.hidden = !inHome;
+  }
 
-    if (!signedIn) {
-      sessionActions.innerHTML = "";
+  function renderSettingsContent() {
+    if (!settingsContent) {
       return;
     }
-
-    sessionActions.innerHTML = `
-      <span class="user-email">${escapeHtml(currentUser.email || "Signed in")}</span>
-      <button id="sign-out-button" class="button button-secondary" type="button">Sign out</button>
+    if (!currentUser) {
+      settingsContent.innerHTML = "";
+      return;
+    }
+    settingsContent.innerHTML = `
+      <div class="dialog-head">
+        <h2>Settings</h2>
+        <button class="icon-button" type="button" data-action="close-settings" aria-label="Close">&times;</button>
+      </div>
+      <p class="settings-email">${escapeHtml(currentUser.email || "Signed in")}</p>
+      <div class="settings-section">
+        <span class="settings-label">Default entry form</span>
+        <div class="form-mode-toggle">
+          <button type="button" class="filter-chip ${userDefaultEntryFormMode === "quick" ? "is-active" : ""}" data-action="set-default-mode" data-mode="quick">Quick</button>
+          <button type="button" class="filter-chip ${userDefaultEntryFormMode === "shorthand" ? "is-active" : ""}" data-action="set-default-mode" data-mode="shorthand">Shorthand</button>
+        </div>
+      </div>
+      <div class="settings-divider" role="separator"></div>
+      <button class="button button-secondary" type="button" data-action="export">Export JSON</button>
+      <label class="button button-secondary file-button">
+        Import JSON
+        <input id="import-input" type="file" accept="application/json,.json">
+      </label>
+      <div class="settings-divider" role="separator"></div>
+      <button class="button button-secondary" type="button" data-action="sign-out">Sign out</button>
     `;
   }
 
@@ -479,23 +548,23 @@
     root.innerHTML = `
       <section class="empty-state" aria-live="polite">
         <h2>${escapeHtml(message || "Loading")}</h2>
-        <p>Taking too long?
-          <button type="button" class="link-button" data-action="reset-app">Reset and reload</button>
-        </p>
       </section>
     `;
   }
 
-  function renderError(message) {
+  function renderError(message, options) {
+    const canRetry = options && options.retry;
     screenLabel.textContent = "Error";
     root.innerHTML = `
       <section class="empty-state" aria-live="polite">
         <h2>${escapeHtml(message)}</h2>
+        ${canRetry ? `<p><button type="button" class="link-button" data-action="retry-load">Try again</button></p>` : ""}
       </section>
     `;
   }
 
   function renderHome() {
+    entryFormMode = userDefaultEntryFormMode;
     const allExercises = sortedExercises();
     const tags = allTagsWithCounts();
 
@@ -508,7 +577,7 @@
 
     let listMarkup;
     if (!allExercises.length) {
-      listMarkup = renderEmpty("No exercises yet.");
+      listMarkup = renderEmpty("No exercises yet. Tap + to add one.");
     } else if (!visible.length) {
       listMarkup = renderEmpty("No exercises match this tag.");
     } else if (activeTagFilter) {
@@ -519,17 +588,6 @@
 
     root.innerHTML = `
       <section class="panel">
-        <form id="exercise-form" class="add-form exercise-form" autocomplete="off">
-          <label class="field">
-            <span>Exercise</span>
-            <input class="text-input" id="exercise-name" name="name" type="text" maxlength="80" placeholder="Bench press" required>
-          </label>
-          <label class="field">
-            <span>Tags</span>
-            <input class="text-input" name="tags" type="text" maxlength="120" placeholder="push, barbell">
-          </label>
-          <button class="button button-primary" type="submit">Add</button>
-        </form>
         ${tags.length ? renderTagFilter(tags, allExercises.length) : ""}
         ${listMarkup}
       </section>
@@ -633,27 +691,29 @@
     root.innerHTML = `
       <section class="panel">
         <div class="detail-head">
-          <button class="icon-button" type="button" aria-label="Back to exercises" data-action="back">&larr;</button>
+          <button class="icon-button is-quiet" type="button" aria-label="Back to exercises" data-action="back">&larr;</button>
           <div class="detail-title">
-            <h2>${escapeHtml(exercise.name)}</h2>
-            ${exercise.tags.length ? renderTagChips(exercise.tags) : `<p class="exercise-meta">No tags</p>`}
-            <div class="detail-actions">
-              <details class="edit-exercise-panel">
-                <summary>Edit</summary>
-                <form id="exercise-edit-form" class="edit-exercise-form" autocomplete="off">
-                  <label class="field">
-                    <span>Name</span>
-                    <input class="text-input" name="name" type="text" maxlength="80" value="${escapeHtml(exercise.name)}" required>
-                  </label>
-                  <label class="field">
-                    <span>Tags</span>
-                    <input class="text-input" name="tags" type="text" maxlength="120" value="${escapeHtml(exercise.tags.join(", "))}">
-                  </label>
-                  <button class="button button-primary" type="submit">Save</button>
-                </form>
-              </details>
-              <button class="icon-button danger-icon" type="button" data-action="delete-exercise" aria-label="Delete exercise">&times;</button>
+            <div class="detail-title-row">
+              <h2>${escapeHtml(exercise.name)}</h2>
+              <div class="detail-actions" role="group" aria-label="Exercise actions">
+                <button class="icon-button is-quiet detail-action-button ${editingExerciseId === exercise.id ? "is-active" : ""}" type="button" data-action="toggle-exercise-edit" aria-label="Edit exercise">&#9998;</button>
+                <button class="icon-button is-quiet detail-action-button danger" type="button" data-action="delete-exercise" aria-label="Delete exercise">&times;</button>
+              </div>
             </div>
+            ${exercise.tags.length ? renderTagChips(exercise.tags) : ""}
+            ${editingExerciseId === exercise.id ? `
+              <form id="exercise-edit-form" class="edit-exercise-form" autocomplete="off">
+                <label class="field">
+                  <span>Name</span>
+                  <input class="text-input" name="name" type="text" maxlength="80" value="${escapeHtml(exercise.name)}" required>
+                </label>
+                <label class="field">
+                  <span>Tags</span>
+                  <input class="text-input" name="tags" type="text" maxlength="120" value="${escapeHtml(exercise.tags.join(", "))}">
+                </label>
+                <button class="button button-primary" type="submit">Save</button>
+              </form>
+            ` : ""}
           </div>
         </div>
 
@@ -709,32 +769,54 @@
             <input class="text-input" name="notes" type="text" maxlength="120" placeholder="slow, assisted, clean">
           </label>
         </div>
-        <button class="button button-primary" type="submit">Add row</button>
+        <button class="button button-primary" type="submit">Add</button>
       </form>
     `;
   }
 
   function renderEntryTable(entries) {
+    const groups = [];
+    let currentGroup = null;
+    for (const entry of entries) {
+      if (!currentGroup || currentGroup.date !== entry.date) {
+        currentGroup = { date: entry.date, entries: [] };
+        groups.push(currentGroup);
+      }
+      currentGroup.entries.push(entry);
+    }
+
     return `
       <div class="table-shell">
         <div class="entry-table" role="table" aria-label="Exercise entries">
           <div class="entry-row entry-header" role="row">
-            <span class="table-heading" role="columnheader">Date</span>
             <span class="table-heading" role="columnheader">Resistance</span>
             <span class="table-heading" role="columnheader">Sets</span>
             <span class="table-heading" role="columnheader">Reps</span>
             <span class="table-heading" role="columnheader">Notes</span>
-            <span class="table-heading" role="columnheader">Del</span>
+            <span class="table-heading" role="columnheader" aria-label="Delete"></span>
           </div>
-          ${entries.map((entry) => `
-            <div class="entry-row" role="row" data-entry-id="${escapeHtml(entry.id)}">
-              <span class="entry-date">${escapeHtml(formatDate(entry.date))}</span>
-              <input class="text-input" aria-label="Resistance" type="text" inputmode="decimal" maxlength="40" data-entry-field="resistance" value="${escapeHtml(entry.resistance)}">
-              <input class="text-input" aria-label="Sets" type="text" inputmode="numeric" maxlength="24" data-entry-field="sets" value="${escapeHtml(entry.sets)}">
-              <input class="text-input" aria-label="Reps" type="text" inputmode="numeric" maxlength="24" data-entry-field="reps" value="${escapeHtml(entry.reps)}">
-              <input class="text-input" aria-label="Notes" type="text" maxlength="120" data-entry-field="notes" value="${escapeHtml(entry.notes)}">
-              <button class="icon-button" type="button" aria-label="Delete row" data-action="delete-entry">&times;</button>
+          ${groups.map((group) => `
+            <div class="entry-day-header" role="rowgroup">
+              <span>${escapeHtml(formatDate(group.date))}</span>
+              <span class="entry-day-count">${group.entries.length === 1 ? "1 set" : `${group.entries.length} sets`}</span>
             </div>
+            ${group.entries.map((entry) => `
+              <div class="entry-row" role="row" data-entry-id="${escapeHtml(entry.id)}">
+                <label class="entry-cell" data-label="Resistance">
+                  <input class="text-input" aria-label="Resistance" type="text" inputmode="decimal" maxlength="40" data-entry-field="resistance" value="${escapeHtml(entry.resistance)}">
+                </label>
+                <label class="entry-cell" data-label="Sets">
+                  <input class="text-input" aria-label="Sets" type="text" inputmode="numeric" maxlength="24" data-entry-field="sets" value="${escapeHtml(entry.sets)}">
+                </label>
+                <label class="entry-cell" data-label="Reps">
+                  <input class="text-input" aria-label="Reps" type="text" inputmode="numeric" maxlength="24" data-entry-field="reps" value="${escapeHtml(entry.reps)}">
+                </label>
+                <label class="entry-cell" data-label="Notes">
+                  <input class="text-input" aria-label="Notes" type="text" maxlength="120" data-entry-field="notes" value="${escapeHtml(entry.notes)}">
+                </label>
+                <button class="icon-button is-quiet entry-delete" type="button" aria-label="Delete row" data-action="delete-entry">&times;</button>
+              </div>
+            `).join("")}
           `).join("")}
         </div>
       </div>
@@ -750,6 +832,9 @@
   }
 
   async function loadRemoteState() {
+    const loadToken = activeLoadToken + 1;
+    activeLoadToken = loadToken;
+
     if (!currentUser) {
       state = emptyState();
       render();
@@ -757,13 +842,6 @@
     }
 
     renderLoading("Loading exercises");
-
-    let timedOut = false;
-    const timeoutHandle = window.setTimeout(() => {
-      timedOut = true;
-      renderLoading("Still loading. Resetting…");
-      recoverFromStuck();
-    }, 12000);
 
     const fetchExercises = supabaseClient
       .from("exercises")
@@ -781,25 +859,27 @@
     let exerciseResult;
     let entryResult;
     try {
-      [exerciseResult, entryResult] = await Promise.all([fetchExercises, fetchEntries]);
+      [exerciseResult, entryResult] = await withTimeout(
+        Promise.all([fetchExercises, fetchEntries]),
+        15000,
+        "Could not load exercises. Check your connection and try again."
+      );
     } catch (error) {
-      window.clearTimeout(timeoutHandle);
-      if (timedOut) {
+      if (loadToken !== activeLoadToken) {
         return;
       }
       handleSupabaseError(error);
-      renderError("Could not load Supabase data. Check your connection and try again.");
+      renderError("Could not load Supabase data. Check your connection and try again.", { retry: true });
       return;
     }
 
-    window.clearTimeout(timeoutHandle);
-    if (timedOut) {
+    if (loadToken !== activeLoadToken) {
       return;
     }
 
     if (exerciseResult.error || entryResult.error) {
       handleSupabaseError(exerciseResult.error || entryResult.error);
-      renderError("Could not load Supabase data. Make sure the schema has been created.");
+      renderError("Could not load Supabase data. Make sure the schema has been created.", { retry: true });
       return;
     }
 
@@ -833,8 +913,8 @@
         }
 
         currentUser = data.user;
+        syncEntryFormModeFromUser();
         await loadRemoteState();
-        showToast("Signed in.");
         return;
       }
 
@@ -853,8 +933,8 @@
 
       if (data.session && data.user) {
         currentUser = data.user;
+        syncEntryFormModeFromUser();
         await loadRemoteState();
-        showToast("Account created.");
       } else {
         showToast("Check your email to confirm your account.");
       }
@@ -874,10 +954,13 @@
 
     currentUser = null;
     state = emptyState();
+    activeLoadToken += 1;
     selectedExerciseId = null;
+    editingExerciseId = null;
     authMode = "sign-in";
+    userDefaultEntryFormMode = "quick";
+    entryFormMode = "quick";
     render();
-    showToast("Signed out.");
   }
 
   async function handleAddExercise(event) {
@@ -908,8 +991,8 @@
     }
 
     state.exercises.push(exerciseFromRow(data));
+    closeAddExerciseDialog();
     render();
-    showToast("Exercise added.");
   }
 
   async function handleAddEntry(event) {
@@ -966,8 +1049,6 @@
       restoredForm.elements.reps.value = reps;
       restoredForm.elements.notes.value = notes;
     }
-
-    showToast("Row added.");
   }
 
   async function handleAddShorthand(form, user, selectedExercise) {
@@ -1005,10 +1086,9 @@
     }
     render();
 
-    const message = errors.length
-      ? `Added ${data.length}. Skipped: ${errors.join("; ")}`
-      : `Added ${data.length} ${data.length === 1 ? "row" : "rows"}.`;
-    showToast(message);
+    if (errors.length) {
+      showToast(`Added ${data.length}. Skipped: ${errors.join("; ")}`);
+    }
   }
 
   async function updateEntryField(input) {
@@ -1068,8 +1148,8 @@
     }
 
     const action = actionTarget.dataset.action;
-    if (action === "reset-app") {
-      recoverFromStuck();
+    if (action === "retry-load") {
+      loadRemoteState();
       return;
     }
 
@@ -1091,8 +1171,13 @@
       if (nextMode === entryFormMode) {
         return;
       }
-      setEntryFormMode(nextMode);
+      setSessionEntryFormMode(nextMode);
       render();
+      return;
+    }
+
+    if (action === "open-add-exercise") {
+      openAddExerciseDialog();
       return;
     }
 
@@ -1102,13 +1187,23 @@
     }
 
     if (action === "open-exercise") {
+      editingExerciseId = null;
+      entryFormMode = userDefaultEntryFormMode;
       selectedExerciseId = actionTarget.dataset.id;
       render();
       return;
     }
 
     if (action === "back") {
+      editingExerciseId = null;
+      entryFormMode = userDefaultEntryFormMode;
       selectedExerciseId = null;
+      render();
+      return;
+    }
+
+    if (action === "toggle-exercise-edit") {
+      editingExerciseId = editingExerciseId === selectedExerciseId ? null : selectedExerciseId;
       render();
       return;
     }
@@ -1270,7 +1365,6 @@
     }
 
     render();
-    showToast("Order updated.");
   }
 
   async function handleReorderKeydown(event) {
@@ -1324,8 +1418,8 @@
     }
 
     Object.assign(exercise, exerciseFromRow(data));
+    editingExerciseId = null;
     render();
-    showToast("Exercise updated.");
   }
 
   async function deleteSelectedExercise() {
@@ -1354,8 +1448,8 @@
     state.exercises = state.exercises.filter((item) => item.id !== exercise.id);
     state.entries = state.entries.filter((entry) => entry.exerciseId !== exercise.id);
     selectedExerciseId = null;
+    editingExerciseId = null;
     render();
-    showToast("Exercise deleted.");
   }
 
   async function deleteEntry(entryId) {
@@ -1378,7 +1472,6 @@
 
     state.entries = state.entries.filter((entry) => entry.id !== entryId);
     render();
-    showToast("Row deleted.");
   }
 
   function exportData() {
@@ -1398,7 +1491,6 @@
     link.remove();
     URL.revokeObjectURL(url);
     closeActionsDialog();
-    showToast("Export started.");
   }
 
   async function importData(file) {
@@ -1481,16 +1573,21 @@
         selectedExerciseId = null;
         await loadRemoteState();
         closeActionsDialog();
-        showToast("Import complete.");
       } catch (error) {
         handleSupabaseError(error);
         await loadRemoteState();
       } finally {
-        importInput.value = "";
+        const importInput = document.getElementById("import-input");
+        if (importInput) {
+          importInput.value = "";
+        }
       }
     });
     reader.addEventListener("error", () => {
-      importInput.value = "";
+      const importInput = document.getElementById("import-input");
+      if (importInput) {
+        importInput.value = "";
+      }
       showToast("Import failed.");
     });
     reader.readAsText(file);
@@ -1513,12 +1610,12 @@
       return;
     }
 
+    renderSettingsContent();
     moreButton.setAttribute("aria-expanded", "true");
     if (typeof actionsDialog.showModal === "function") {
       actionsDialog.showModal();
       return;
     }
-
     actionsDialog.setAttribute("open", "");
   }
 
@@ -1528,8 +1625,82 @@
       actionsDialog.close();
       return;
     }
-
     actionsDialog.removeAttribute("open");
+  }
+
+  function openAddExerciseDialog() {
+    if (!currentUser || !addExerciseDialog) {
+      return;
+    }
+    const form = addExerciseDialog.querySelector("#exercise-form");
+    if (form) {
+      form.reset();
+    }
+    if (typeof addExerciseDialog.showModal === "function") {
+      addExerciseDialog.showModal();
+    } else {
+      addExerciseDialog.setAttribute("open", "");
+    }
+    if (form) {
+      const nameInput = form.querySelector('input[name="name"]');
+      if (nameInput) {
+        window.requestAnimationFrame(() => nameInput.focus());
+      }
+    }
+  }
+
+  function closeAddExerciseDialog() {
+    if (!addExerciseDialog) {
+      return;
+    }
+    if (addExerciseDialog.open && typeof addExerciseDialog.close === "function") {
+      addExerciseDialog.close();
+      return;
+    }
+    addExerciseDialog.removeAttribute("open");
+  }
+
+  function handleSettingsClick(event) {
+    if (event.target === actionsDialog) {
+      closeActionsDialog();
+      return;
+    }
+    const target = event.target.closest("[data-action]");
+    if (!target) {
+      return;
+    }
+    const action = target.dataset.action;
+    if (action === "close-settings") {
+      closeActionsDialog();
+      return;
+    }
+    if (action === "set-default-mode") {
+      setUserDefaultEntryFormMode(target.dataset.mode);
+      return;
+    }
+    if (action === "export") {
+      exportData();
+      return;
+    }
+    if (action === "sign-out") {
+      closeActionsDialog();
+      signOut();
+      return;
+    }
+  }
+
+  function handleAddExerciseDialogClick(event) {
+    if (event.target === addExerciseDialog) {
+      closeAddExerciseDialog();
+      return;
+    }
+    const target = event.target.closest("[data-action]");
+    if (!target) {
+      return;
+    }
+    if (target.dataset.action === "close-add-exercise") {
+      closeAddExerciseDialog();
+    }
   }
 
   async function bootstrap() {
@@ -1550,17 +1721,33 @@
       if (event === "SIGNED_OUT") {
         currentUser = null;
         state = emptyState();
+        activeLoadToken += 1;
         selectedExerciseId = null;
+        editingExerciseId = null;
         render();
       }
 
       if (event === "SIGNED_IN" && session && session.user && session.user.id !== (currentUser && currentUser.id)) {
         currentUser = session.user;
+        syncEntryFormModeFromUser();
         await loadRemoteState();
       }
     });
 
-    const { data, error } = await supabaseClient.auth.getSession();
+    let sessionResult;
+    try {
+      sessionResult = await withTimeout(
+        supabaseClient.auth.getSession(),
+        12000,
+        "Could not check your sign-in session."
+      );
+    } catch (error) {
+      handleSupabaseError(error);
+      renderAuth();
+      return;
+    }
+
+    const { data, error } = sessionResult;
     if (error) {
       handleSupabaseError(error);
       renderAuth();
@@ -1569,42 +1756,27 @@
 
     currentUser = data.session ? data.session.user : null;
     if (currentUser) {
+      syncEntryFormModeFromUser();
       await loadRemoteState();
     } else {
       render();
     }
   }
 
-  function registerServiceWorker() {
-    if (!("serviceWorker" in navigator)) {
-      return;
-    }
-
-    window.addEventListener("load", () => {
-      navigator.serviceWorker
-        .register("./service-worker.js")
-        .then((registration) => {
-          window.setInterval(() => {
-            registration.update().catch(() => {});
-          }, 60 * 60 * 1000);
-        })
-        .catch((error) => {
-          console.warn("Service worker registration failed.", error);
-        });
-    });
-  }
-
-  root.addEventListener("submit", (event) => {
+  document.addEventListener("submit", (event) => {
     if (event.target.id === "exercise-form") {
       handleAddExercise(event);
+      return;
     }
 
     if (event.target.id === "entry-form") {
       handleAddEntry(event);
+      return;
     }
 
     if (event.target.id === "exercise-edit-form") {
       handleEditExercise(event);
+      return;
     }
 
     if (event.target.id === "sign-in-form" || event.target.id === "register-form") {
@@ -1631,29 +1803,31 @@
     }
   });
 
-  if (sessionActions) {
-    sessionActions.addEventListener("click", (event) => {
-      if (event.target.id === "sign-out-button") {
-        signOut();
+  moreButton.addEventListener("click", openActionsDialog);
+
+  if (actionsDialog) {
+    actionsDialog.addEventListener("click", handleSettingsClick);
+    actionsDialog.addEventListener("close", () => {
+      moreButton.setAttribute("aria-expanded", "false");
+    });
+    actionsDialog.addEventListener("change", (event) => {
+      if (event.target.id === "import-input") {
+        importData(event.target.files[0]);
       }
     });
   }
 
-  moreButton.addEventListener("click", openActionsDialog);
-  actionsDialog.addEventListener("click", (event) => {
-    if (event.target === actionsDialog) {
-      closeActionsDialog();
-    }
-  });
-  actionsDialog.addEventListener("close", () => {
-    moreButton.setAttribute("aria-expanded", "false");
-  });
-  exportButton.addEventListener("click", exportData);
-  importInput.addEventListener("change", () => importData(importInput.files[0]));
+  if (addExerciseDialog) {
+    addExerciseDialog.addEventListener("click", handleAddExerciseDialogClick);
+  }
+
+  if (addExerciseFab) {
+    addExerciseFab.addEventListener("click", openAddExerciseDialog);
+  }
 
   window.addEventListener("online", () => showToast("Online."));
   window.addEventListener("offline", () => showToast("Offline. Supabase data needs network."));
 
-  registerServiceWorker();
+  cleanupOldServiceWorkers();
   bootstrap();
 })();

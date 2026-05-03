@@ -59,7 +59,7 @@ Open the app directly:
 http://localhost:5173/the_dojo/
 ```
 
-Localhost is enough for development. Exercise data now comes from Supabase, so the app needs network access after sign-in.
+Localhost is enough for development. Exercise data comes from Supabase, so the app needs network access after sign-in.
 
 ## GitHub Pages Setup
 
@@ -89,7 +89,7 @@ GitHub Pages reference: https://docs.github.com/articles/user-organization-and-p
 1. Open the GitHub Pages URL in Safari on your iPhone.
 2. Tap the Share button.
 3. Tap Add to Home Screen.
-4. Launch The Dojo once while online so the offline files can cache.
+4. Launch The Dojo from the new Home Screen icon while online.
 5. Use the new Home Screen icon at the gym.
 
 Apple guide: https://support.apple.com/en-euro/guide/iphone/iphea86e5236/ios
@@ -103,11 +103,15 @@ Apple guide: https://support.apple.com/en-euro/guide/iphone/iphea86e5236/ios
 
 Service worker reference: https://developer.mozilla.org/docs/Web/API/Service_Worker_API
 
+## Loading And Caching
+
+The Dojo does not keep an offline app shell anymore. It depends on Supabase for account data, and old `the-dojo-*` browser caches are cleared automatically on startup. If a previous iPhone install had an older service worker, opening the current app online should retire it.
+
 ## Files
 
 - `index.html` - app shell and PWA metadata.
 - `styles.css` - dark mobile-first UI.
 - `app.js` - Supabase auth, remote data model, tags, ordering, rendering, import/export, and interactions.
 - `manifest.webmanifest` - install metadata.
-- `service-worker.js` - offline app shell cache.
+- `service-worker.js` - cleanup worker for retiring old cached versions.
 - `assets/` - app icons.

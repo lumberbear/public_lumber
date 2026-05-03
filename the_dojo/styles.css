@@ -42,7 +42,8 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
 }
 
@@ -129,27 +130,9 @@ h3 {
   letter-spacing: 0.02em;
 }
 
-.header-actions {
-  display: flex;
+.app-header > #more-button {
   flex: 0 0 auto;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.session-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.user-email {
-  max-width: 190px;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  align-self: center;
 }
 
 .button,
@@ -251,6 +234,31 @@ h3 {
 
 .app-root {
   outline: none;
+}
+
+.fab {
+  position: fixed;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: calc(env(safe-area-inset-bottom) + 18px);
+  z-index: 12;
+  width: 58px;
+  height: 58px;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42);
+  cursor: pointer;
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.fab:active {
+  transform: translateY(1px);
 }
 
 .panel {
@@ -357,24 +365,46 @@ h3 {
   font-weight: 500;
 }
 
+.settings-email {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-section {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-divider {
+  height: 1px;
+  background: var(--line-soft);
+  margin: 2px 0;
+}
+
+.dialog-form {
+  display: grid;
+  gap: 12px;
+}
+
 .toolbar {
   display: grid;
   gap: 10px;
 }
 
-.add-form,
 .entry-form {
   display: grid;
   gap: 12px;
-}
-
-.add-form {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto;
-  align-items: end;
-  padding: 16px;
-  border: 1px solid var(--line-soft);
-  border-radius: 10px;
-  background: var(--surface);
 }
 
 .entry-form {
@@ -395,6 +425,10 @@ h3 {
 .form-mode-toggle {
   display: flex;
   gap: 6px;
+}
+
+.form-mode-toggle .filter-chip {
+  text-transform: none;
 }
 
 .form-mode-row .icon-button.is-quiet {
@@ -729,7 +763,7 @@ h3 {
 .detail-head {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
+  gap: 8px;
   align-items: start;
 }
 
@@ -739,49 +773,48 @@ h3 {
   gap: 10px;
 }
 
+.detail-title-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
 .detail-title h2 {
   font-family: var(--serif);
   font-weight: 500;
   letter-spacing: 0.01em;
   overflow-wrap: anywhere;
-}
-
-.detail-actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  align-items: start;
-}
-
-.edit-exercise-panel {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-.edit-exercise-panel summary {
-  min-height: 44px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
-  display: inline-flex;
+.detail-actions {
+  display: flex;
+  gap: 4px;
   align-items: center;
-  justify-content: center;
-  padding: 0 16px;
-  font-weight: 500;
-  font-size: 13px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  list-style: none;
+  flex: 0 0 auto;
 }
 
-.edit-exercise-panel summary:hover {
-  color: var(--text);
-  border-color: var(--muted);
+.detail-action-button {
+  width: 36px;
+  min-height: 36px;
+  font-size: 16px;
+  padding: 0;
 }
 
-.edit-exercise-panel summary::-webkit-details-marker {
-  display: none;
+.detail-action-button.danger {
+  color: #c89a92;
+}
+
+.detail-action-button.danger:hover {
+  color: #ffd1cc;
+}
+
+.detail-action-button.is-active {
+  background: var(--surface-strong);
+  border-color: var(--line);
 }
 
 .edit-exercise-form {
@@ -795,20 +828,19 @@ h3 {
 }
 
 .table-shell {
-  overflow-x: auto;
+  overflow: hidden;
   border: 1px solid var(--line-soft);
   border-radius: 10px;
   background: var(--surface);
 }
 
 .entry-table {
-  min-width: 760px;
   display: grid;
 }
 
 .entry-row {
   display: grid;
-  grid-template-columns: 132px 126px 78px 78px minmax(160px, 1fr) 52px;
+  grid-template-columns: minmax(116px, 1fr) 72px 72px minmax(140px, 1.4fr) 44px;
   gap: 8px;
   align-items: center;
   padding: 10px 14px;
@@ -826,16 +858,43 @@ h3 {
   z-index: 1;
 }
 
+.entry-cell {
+  min-width: 0;
+}
+
 .entry-row .text-input {
   min-height: 40px;
   padding: 8px 10px;
 }
 
-.entry-date {
+.entry-day-header {
+  border-bottom: 1px solid var(--line-soft);
+  background: rgba(200, 69, 58, 0.08);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px;
+  font-family: var(--serif);
+  font-size: 15px;
+}
+
+.entry-day-count {
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  flex: 0 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.entry-delete {
+  width: 36px;
+  min-height: 36px;
+  justify-self: end;
+  font-size: 18px;
 }
 
 .empty-state {
@@ -909,36 +968,21 @@ h3 {
   .app-shell {
     padding-left: 14px;
     padding-right: 14px;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 88px);
   }
 
   .app-header {
-    align-items: stretch;
-    flex-direction: column;
+    align-items: center;
+    gap: 10px;
   }
 
-  .header-actions {
-    width: 100%;
+  .brand-mark {
+    width: 30px;
+    height: 30px;
   }
 
-  .header-actions .button {
-    flex: 1 1 0;
-  }
-
-  .session-actions {
-    width: 100%;
-  }
-
-  .session-actions .button {
-    flex: 0 0 auto;
-  }
-
-  .user-email {
-    max-width: none;
-    min-width: 0;
-  }
-
-  .add-form {
-    grid-template-columns: 1fr;
+  .actions-dialog {
+    width: min(calc(100% - 24px), 420px);
   }
 
   .entry-fields {
@@ -948,5 +992,91 @@ h3 {
   .exercise-card {
     min-height: 84px;
     padding: 14px;
+  }
+
+  .detail-head {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+
+  .detail-title-row {
+    align-items: flex-start;
+  }
+
+  .table-shell {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .entry-table {
+    gap: 8px;
+  }
+
+  .entry-row.entry-header {
+    display: none;
+  }
+
+  .entry-day-header {
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    background: rgba(200, 69, 58, 0.1);
+    margin-top: 4px;
+  }
+
+  .entry-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "resistance delete"
+      "sets delete"
+      "reps delete"
+      "notes notes";
+    gap: 10px 12px;
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 12px;
+  }
+
+  .entry-row:last-child {
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .entry-cell {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+  }
+
+  .entry-cell::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .entry-cell:nth-of-type(1) {
+    grid-area: resistance;
+  }
+
+  .entry-cell:nth-of-type(2) {
+    grid-area: sets;
+  }
+
+  .entry-cell:nth-of-type(3) {
+    grid-area: reps;
+  }
+
+  .entry-cell:nth-of-type(4) {
+    grid-area: notes;
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .entry-delete {
+    grid-area: delete;
+    align-self: start;
   }
 }
