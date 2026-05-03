@@ -384,6 +384,73 @@ h3 {
   background: var(--surface);
 }
 
+.form-mode-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.form-mode-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.form-mode-row .icon-button.is-quiet {
+  width: 32px;
+  min-height: 32px;
+  font-size: 16px;
+}
+
+.shorthand-input {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  resize: vertical;
+  line-height: 1.5;
+  padding: 10px 12px;
+}
+
+.help-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.help-example {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: #110d0a;
+  color: var(--text);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.help-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.help-list code,
+.help-text code {
+  padding: 1px 6px;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  background: #110d0a;
+  color: var(--text);
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
 .entry-fields {
   display: grid;
   grid-template-columns: minmax(130px, 1fr) minmax(96px, 1fr);
