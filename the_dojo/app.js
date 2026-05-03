@@ -29,6 +29,48 @@
   let activeTagFilter = null;
   let reloadingForController = false;
   let recoveringFromStuck = false;
+  let entryFormMode = readEntryFormMode();
+
+  function readEntryFormMode() {
+    try {
+      return window.localStorage.getItem("the-dojo:entry-form-mode") === "shorthand" ? "shorthand" : "quick";
+    } catch (error) {
+      return "quick";
+    }
+  }
+
+  function setEntryFormMode(mode) {
+    entryFormMode = mode === "shorthand" ? "shorthand" : "quick";
+    try {
+      window.localStorage.setItem("the-dojo:entry-form-mode", entryFormMode);
+    } catch (error) {
+      // ignore storage failures
+    }
+  }
+
+  function parseShorthand(input) {
+    const entries = [];
+    const errors = [];
+    const chunks = String(input || "").split(",").map((chunk) => chunk.trim()).filter(Boolean);
+
+    for (const chunk of chunks) {
+      const match = chunk.match(/^(\S+)\s*[x×]\s*([^@]+?)(?:\s*@\s*(.+))?$/i);
+      if (!match) {
+        errors.push(`Could not read "${chunk}"`);
+        continue;
+      }
+      const sets = match[1].trim();
+      const reps = match[2].trim();
+      const resistance = (match[3] || "").trim();
+      if (!sets || !reps) {
+        errors.push(`Missing sets or reps in "${chunk}"`);
+        continue;
+      }
+      entries.push({ sets, reps, resistance });
+    }
+
+    return { entries, errors };
+  }
 
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -615,30 +657,60 @@
           </div>
         </div>
 
-        <form id="entry-form" class="entry-form" autocomplete="off">
-          <div class="entry-fields">
-            <label class="field">
-              <span>Resistance</span>
-              <input class="text-input" name="resistance" type="text" inputmode="decimal" maxlength="40" placeholder="50 lb">
-            </label>
-            <label class="field">
-              <span>Sets</span>
-              <input class="text-input" name="sets" type="text" inputmode="numeric" maxlength="24" placeholder="3">
-            </label>
-            <label class="field">
-              <span>Reps</span>
-              <input class="text-input" name="reps" type="text" inputmode="numeric" maxlength="24" placeholder="10">
-            </label>
-            <label class="field">
-              <span>Notes</span>
-              <input class="text-input" name="notes" type="text" maxlength="120" placeholder="slow, assisted, clean">
-            </label>
-          </div>
-          <button class="button button-primary" type="submit">Add row</button>
-        </form>
+        ${renderEntryForm()}
 
         ${entries.length ? renderEntryTable(entries) : renderEmpty("No rows yet.")}
       </section>
+    `;
+  }
+
+  function renderEntryForm() {
+    const modeRow = `
+      <div class="form-mode-row">
+        <div class="form-mode-toggle" role="group" aria-label="Entry form mode">
+          <button type="button" class="filter-chip ${entryFormMode === "quick" ? "is-active" : ""}" data-action="form-mode" data-mode="quick">Quick</button>
+          <button type="button" class="filter-chip ${entryFormMode === "shorthand" ? "is-active" : ""}" data-action="form-mode" data-mode="shorthand">Shorthand</button>
+        </div>
+        ${entryFormMode === "shorthand" ? `<button type="button" class="icon-button is-quiet" data-action="show-shorthand-help" aria-label="Shorthand help">?</button>` : ""}
+      </div>
+    `;
+
+    if (entryFormMode === "shorthand") {
+      return `
+        <form id="entry-form" class="entry-form" autocomplete="off" data-mode="shorthand">
+          ${modeRow}
+          <label class="field">
+            <span>Sets</span>
+            <textarea class="text-input shorthand-input" name="shorthand" rows="2" placeholder="2x50@40, 1x40@10" autocomplete="off"></textarea>
+          </label>
+          <button class="button button-primary" type="submit">Add rows</button>
+        </form>
+      `;
+    }
+
+    return `
+      <form id="entry-form" class="entry-form" autocomplete="off" data-mode="quick">
+        ${modeRow}
+        <div class="entry-fields">
+          <label class="field">
+            <span>Resistance</span>
+            <input class="text-input" name="resistance" type="text" inputmode="decimal" maxlength="40" placeholder="50 lb">
+          </label>
+          <label class="field">
+            <span>Sets</span>
+            <input class="text-input" name="sets" type="text" inputmode="numeric" maxlength="24" placeholder="3">
+          </label>
+          <label class="field">
+            <span>Reps</span>
+            <input class="text-input" name="reps" type="text" inputmode="numeric" maxlength="24" placeholder="10">
+          </label>
+          <label class="field">
+            <span>Notes</span>
+            <input class="text-input" name="notes" type="text" maxlength="120" placeholder="slow, assisted, clean">
+          </label>
+        </div>
+        <button class="button button-primary" type="submit">Add row</button>
+      </form>
     `;
   }
 
@@ -849,6 +921,11 @@
       return;
     }
 
+    if (form.dataset.mode === "shorthand") {
+      await handleAddShorthand(form, user, selectedExercise);
+      return;
+    }
+
     const date = todayLocalDate();
     const resistance = form.elements.resistance.value.trim();
     const sets = form.elements.sets.value.trim();
@@ -881,7 +958,57 @@
 
     state.entries.push(entryFromRow(data));
     render();
+
+    const restoredForm = document.getElementById("entry-form");
+    if (restoredForm && restoredForm.dataset.mode === "quick") {
+      restoredForm.elements.resistance.value = resistance;
+      restoredForm.elements.sets.value = sets;
+      restoredForm.elements.reps.value = reps;
+      restoredForm.elements.notes.value = notes;
+    }
+
     showToast("Row added.");
+  }
+
+  async function handleAddShorthand(form, user, selectedExercise) {
+    const raw = form.elements.shorthand.value;
+    const { entries: parsed, errors } = parseShorthand(raw);
+
+    if (!parsed.length) {
+      showToast(errors[0] || "Enter at least one set.");
+      return;
+    }
+
+    const date = todayLocalDate();
+    const rows = parsed.map((item) => ({
+      user_id: user.id,
+      exercise_id: selectedExercise.id,
+      date,
+      resistance: item.resistance,
+      sets: item.sets,
+      reps: item.reps,
+      notes: ""
+    }));
+
+    const { data, error } = await supabaseClient
+      .from("exercise_entries")
+      .insert(rows)
+      .select("*");
+
+    if (error) {
+      handleSupabaseError(error);
+      return;
+    }
+
+    for (const row of data || []) {
+      state.entries.push(entryFromRow(row));
+    }
+    render();
+
+    const message = errors.length
+      ? `Added ${data.length}. Skipped: ${errors.join("; ")}`
+      : `Added ${data.length} ${data.length === 1 ? "row" : "rows"}.`;
+    showToast(message);
   }
 
   async function updateEntryField(input) {
@@ -956,6 +1083,21 @@
       const tag = actionTarget.dataset.tag || "";
       activeTagFilter = tag ? tag : null;
       render();
+      return;
+    }
+
+    if (action === "form-mode") {
+      const nextMode = actionTarget.dataset.mode === "shorthand" ? "shorthand" : "quick";
+      if (nextMode === entryFormMode) {
+        return;
+      }
+      setEntryFormMode(nextMode);
+      render();
+      return;
+    }
+
+    if (action === "show-shorthand-help") {
+      openShorthandHelp();
       return;
     }
 
@@ -1354,6 +1496,18 @@
     reader.readAsText(file);
   }
 
+  function openShorthandHelp() {
+    const dialog = document.getElementById("shorthand-help-dialog");
+    if (!dialog) {
+      return;
+    }
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal();
+      return;
+    }
+    dialog.setAttribute("open", "");
+  }
+
   function openActionsDialog() {
     if (!currentUser) {
       return;
@@ -1427,9 +1581,16 @@
     }
 
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./service-worker.js").catch((error) => {
-        console.warn("Service worker registration failed.", error);
-      });
+      navigator.serviceWorker
+        .register("./service-worker.js")
+        .then((registration) => {
+          window.setInterval(() => {
+            registration.update().catch(() => {});
+          }, 60 * 60 * 1000);
+        })
+        .catch((error) => {
+          console.warn("Service worker registration failed.", error);
+        });
     });
   }
 

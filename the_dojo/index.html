@@ -32,9 +32,15 @@
       <header class="app-header">
         <div class="title-block">
           <span class="brand-mark" aria-hidden="true">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-              <path d="M 340 110 A 168 168 0 1 1 199 98"
-                    fill="none" stroke="#c8453a" stroke-width="44" stroke-linecap="round"/>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="48 130 416 348">
+              <g fill="#c8453a">
+                <rect x="64" y="148" width="384" height="32" rx="4"/>
+                <rect x="92" y="180" width="328" height="14"/>
+                <rect x="148" y="226" width="216" height="22"/>
+                <rect x="158" y="194" width="38" height="270"/>
+                <rect x="316" y="194" width="38" height="270"/>
+                <rect x="248" y="194" width="16" height="32"/>
+              </g>
             </svg>
           </span>
           <div class="title-text">
@@ -67,6 +73,22 @@
           Import JSON
           <input id="import-input" type="file" accept="application/json,.json">
         </label>
+      </form>
+    </dialog>
+
+    <dialog id="shorthand-help-dialog" class="actions-dialog">
+      <form method="dialog" class="dialog-panel">
+        <div class="dialog-head">
+          <h2>Shorthand format</h2>
+          <button class="icon-button" type="submit" aria-label="Close help">&times;</button>
+        </div>
+        <p class="help-text">Type one chunk per set, separated by commas. Each chunk is <code>SETS x REPS @ RESISTANCE</code>.</p>
+        <pre class="help-example">2x50@40, 1x40@10</pre>
+        <ul class="help-list">
+          <li><code>2x50@40</code> — 2 sets of 50 reps at 40</li>
+          <li><code>1x40@10</code> — 1 set of 40 reps at 10</li>
+        </ul>
+        <p class="help-text">Resistance can be text — try <code>3x10@blue band</code> or <code>4x8@bodyweight</code>. The <code>@ resistance</code> part is optional.</p>
       </form>
     </dialog>
   </body>
