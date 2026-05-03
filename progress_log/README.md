@@ -23,21 +23,21 @@ https://dyxqnvokqpwxgtqothcr.supabase.co
 5. Set Site URL:
 
 ```text
-https://lillybear8.github.io/anoo-apps/progress_log/
+https://lumberbear.github.io/public_lumber/progress_log/
 ```
 
 6. Add Redirect URLs:
 
 ```text
 http://localhost:5173/progress_log/
-https://lillybear8.github.io/anoo-apps/progress_log/
+https://lumberbear.github.io/public_lumber/progress_log/
 ```
 
 The frontend uses the Supabase publishable key. That key is safe to ship in this static app only because Row Level Security in `supabase/schema.sql` restricts every exercise and entry row to the signed-in user.
 
 ## Local Mac Preview
 
-From the `anoo-apps` repo root, run:
+From the `public_lumber` repo root, run:
 
 ```sh
 python3 -m http.server 5173
@@ -61,13 +61,13 @@ Localhost is enough for development. Exercise data now comes from Supabase, so t
 6. Open the published URL:
 
 ```text
-https://<username>.github.io/anoo-apps/progress_log/
+https://lumberbear.github.io/public_lumber/progress_log/
 ```
 
 The repo root also redirects to Progress Log:
 
 ```text
-https://<username>.github.io/anoo-apps/
+https://lumberbear.github.io/public_lumber/
 ```
 
 GitHub Pages serves static HTML, CSS, and JavaScript over HTTPS. On GitHub Free, Pages uses public repositories. The repo contains app code only; your workout data is stored in Supabase.
