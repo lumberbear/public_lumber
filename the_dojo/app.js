@@ -25,6 +25,40 @@
   let selectedExerciseId = null;
   let dragState = null;
   let toastTimer = 0;
+  let authMode = "sign-in";
+  let activeTagFilter = null;
+  let reloadingForController = false;
+  let recoveringFromStuck = false;
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloadingForController) {
+        return;
+      }
+      reloadingForController = true;
+      window.location.reload();
+    });
+  }
+
+  async function recoverFromStuck() {
+    if (recoveringFromStuck) {
+      return;
+    }
+    recoveringFromStuck = true;
+    try {
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map((registration) => registration.unregister()));
+      }
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((key) => caches.delete(key)));
+      }
+    } catch (error) {
+      console.warn("Recovery failed.", error);
+    }
+    window.location.reload();
+  }
 
   function emptyState() {
     return {
@@ -209,6 +243,35 @@
     });
   }
 
+  function allTagsWithCounts() {
+    const counts = new Map();
+    for (const exercise of state.exercises) {
+      for (const tag of exercise.tags || []) {
+        const key = tag.toLocaleLowerCase();
+        const existing = counts.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          counts.set(key, { tag, count: 1 });
+        }
+      }
+    }
+    return [...counts.values()].sort((a, b) => {
+      if (b.count !== a.count) {
+        return b.count - a.count;
+      }
+      return a.tag.localeCompare(b.tag, undefined, { sensitivity: "base" });
+    });
+  }
+
+  function exerciseMatchesActiveFilter(exercise) {
+    if (!activeTagFilter) {
+      return true;
+    }
+    const target = activeTagFilter.toLocaleLowerCase();
+    return (exercise.tags || []).some((tag) => tag.toLocaleLowerCase() === target);
+  }
+
   function groupedExercises(exercises) {
     const groupsByKey = new Map();
     for (const exercise of exercises) {
@@ -313,31 +376,18 @@
   }
 
   function renderAuth() {
-    screenLabel.textContent = "Sign in to continue";
+    screenLabel.textContent = authMode === "register" ? "Create your account" : "Sign in to continue";
     state = emptyState();
     selectedExerciseId = null;
 
-    root.innerHTML = `
-      <section class="auth-panel">
-        <div class="auth-copy">
-          <h2>Your exercise log, synced by account.</h2>
-          <p>Register or sign in to load your training log from Supabase.</p>
-        </div>
-        <div class="auth-forms">
-          <form id="sign-in-form" class="auth-form" autocomplete="on">
-            <h3>Sign in</h3>
-            <label class="field">
-              <span>Email</span>
-              <input class="text-input" name="email" type="email" autocomplete="email" required>
-            </label>
-            <label class="field">
-              <span>Password</span>
-              <input class="text-input" name="password" type="password" autocomplete="current-password" minlength="6" required>
-            </label>
-            <button class="button button-primary" type="submit">Sign in</button>
-          </form>
+    if (authMode === "register") {
+      root.innerHTML = `
+        <section class="auth-panel">
+          <div class="auth-copy">
+            <h2>Create your account.</h2>
+            <p>Register to start logging your training.</p>
+          </div>
           <form id="register-form" class="auth-form" autocomplete="on">
-            <h3>Register</h3>
             <label class="field">
               <span>Email</span>
               <input class="text-input" name="email" type="email" autocomplete="email" required>
@@ -346,9 +396,38 @@
               <span>Password</span>
               <input class="text-input" name="password" type="password" autocomplete="new-password" minlength="6" required>
             </label>
-            <button class="button button-secondary" type="submit">Create account</button>
+            <button class="button button-primary" type="submit">Create account</button>
           </form>
+          <p class="auth-toggle">
+            Already have an account?
+            <button type="button" class="link-button" data-action="auth-mode" data-mode="sign-in">Sign in</button>
+          </p>
+        </section>
+      `;
+      return;
+    }
+
+    root.innerHTML = `
+      <section class="auth-panel">
+        <div class="auth-copy">
+          <h2>Welcome back.</h2>
+          <p>Sign in to load your training log.</p>
         </div>
+        <form id="sign-in-form" class="auth-form" autocomplete="on">
+          <label class="field">
+            <span>Email</span>
+            <input class="text-input" name="email" type="email" autocomplete="email" required>
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input class="text-input" name="password" type="password" autocomplete="current-password" minlength="6" required>
+          </label>
+          <button class="button button-primary" type="submit">Sign in</button>
+        </form>
+        <p class="auth-toggle">
+          New here?
+          <button type="button" class="link-button" data-action="auth-mode" data-mode="register">Register now</button>
+        </p>
       </section>
     `;
   }
@@ -358,6 +437,9 @@
     root.innerHTML = `
       <section class="empty-state" aria-live="polite">
         <h2>${escapeHtml(message || "Loading")}</h2>
+        <p>Taking too long?
+          <button type="button" class="link-button" data-action="reset-app">Reset and reload</button>
+        </p>
       </section>
     `;
   }
@@ -372,8 +454,26 @@
   }
 
   function renderHome() {
-    screenLabel.textContent = "Exercises";
-    const exercises = sortedExercises();
+    const allExercises = sortedExercises();
+    const tags = allTagsWithCounts();
+
+    if (activeTagFilter && !tags.some((entry) => entry.tag.toLocaleLowerCase() === activeTagFilter.toLocaleLowerCase())) {
+      activeTagFilter = null;
+    }
+
+    const visible = allExercises.filter(exerciseMatchesActiveFilter);
+    screenLabel.textContent = activeTagFilter ? `Tag · ${activeTagFilter}` : "Exercises";
+
+    let listMarkup;
+    if (!allExercises.length) {
+      listMarkup = renderEmpty("No exercises yet.");
+    } else if (!visible.length) {
+      listMarkup = renderEmpty("No exercises match this tag.");
+    } else if (activeTagFilter) {
+      listMarkup = renderFlatList(visible);
+    } else {
+      listMarkup = renderExerciseList(visible);
+    }
 
     root.innerHTML = `
       <section class="panel">
@@ -388,8 +488,40 @@
           </label>
           <button class="button button-primary" type="submit">Add</button>
         </form>
-        ${exercises.length ? renderExerciseList(exercises) : renderEmpty("No exercises yet.")}
+        ${tags.length ? renderTagFilter(tags, allExercises.length) : ""}
+        ${listMarkup}
       </section>
+    `;
+  }
+
+  function renderTagFilter(tags, totalCount) {
+    const allActive = activeTagFilter ? "" : "is-active";
+    const chips = tags.map(({ tag, count }) => {
+      const active = activeTagFilter && activeTagFilter.toLocaleLowerCase() === tag.toLocaleLowerCase();
+      return `
+        <button type="button" class="filter-chip ${active ? "is-active" : ""}" data-action="filter-tag" data-tag="${escapeHtml(tag)}">
+          <span>${escapeHtml(tag)}</span>
+          <span class="filter-count">${count}</span>
+        </button>
+      `;
+    }).join("");
+
+    return `
+      <div class="tag-filter" role="group" aria-label="Filter exercises by tag">
+        <button type="button" class="filter-chip ${allActive}" data-action="filter-tag" data-tag="">
+          <span>All</span>
+          <span class="filter-count">${totalCount}</span>
+        </button>
+        ${chips}
+      </div>
+    `;
+  }
+
+  function renderFlatList(exercises) {
+    return `
+      <div class="exercise-list flat-list" aria-label="Exercises">
+        ${exercises.map((exercise) => renderExerciseCard(exercise, { reorderable: false })).join("")}
+      </div>
     `;
   }
 
@@ -425,10 +557,14 @@
     `;
   }
 
-  function renderExerciseCard(exercise) {
+  function renderExerciseCard(exercise, options) {
+    const reorderable = !options || options.reorderable !== false;
     const entries = sortedEntriesForExercise(exercise.id);
     const latest = entries[0] || null;
     const countText = entries.length === 1 ? "1 row" : `${entries.length} rows`;
+    const handleMarkup = reorderable
+      ? `<button class="drag-handle" type="button" data-drag-handle data-id="${escapeHtml(exercise.id)}" aria-label="Drag ${escapeHtml(exercise.name)} to reorder. Use arrow keys to move."></button>`
+      : "";
 
     return `
       <article class="exercise-card" data-exercise-id="${escapeHtml(exercise.id)}">
@@ -441,7 +577,7 @@
         </button>
         <div class="exercise-tools" aria-label="Exercise controls">
           <span class="exercise-count">${escapeHtml(countText)}</span>
-          <button class="drag-handle" type="button" data-drag-handle data-id="${escapeHtml(exercise.id)}" aria-label="Drag ${escapeHtml(exercise.name)} to reorder. Use arrow keys to move."></button>
+          ${handleMarkup}
         </div>
       </article>
     `;
@@ -550,20 +686,44 @@
 
     renderLoading("Loading exercises");
 
-    const [exerciseResult, entryResult] = await Promise.all([
-      supabaseClient
-        .from("exercises")
-        .select("*")
-        .eq("user_id", currentUser.id)
-        .order("sort_order", { ascending: true })
-        .order("name", { ascending: true }),
-      supabaseClient
-        .from("exercise_entries")
-        .select("*")
-        .eq("user_id", currentUser.id)
-        .order("date", { ascending: false })
-        .order("created_at", { ascending: false })
-    ]);
+    let timedOut = false;
+    const timeoutHandle = window.setTimeout(() => {
+      timedOut = true;
+      renderLoading("Still loading. Resetting…");
+      recoverFromStuck();
+    }, 12000);
+
+    const fetchExercises = supabaseClient
+      .from("exercises")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    const fetchEntries = supabaseClient
+      .from("exercise_entries")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false });
+
+    let exerciseResult;
+    let entryResult;
+    try {
+      [exerciseResult, entryResult] = await Promise.all([fetchExercises, fetchEntries]);
+    } catch (error) {
+      window.clearTimeout(timeoutHandle);
+      if (timedOut) {
+        return;
+      }
+      handleSupabaseError(error);
+      renderError("Could not load Supabase data. Check your connection and try again.");
+      return;
+    }
+
+    window.clearTimeout(timeoutHandle);
+    if (timedOut) {
+      return;
+    }
 
     if (exerciseResult.error || entryResult.error) {
       handleSupabaseError(exerciseResult.error || entryResult.error);
@@ -643,6 +803,7 @@
     currentUser = null;
     state = emptyState();
     selectedExerciseId = null;
+    authMode = "sign-in";
     render();
     showToast("Signed out.");
   }
@@ -780,6 +941,24 @@
     }
 
     const action = actionTarget.dataset.action;
+    if (action === "reset-app") {
+      recoverFromStuck();
+      return;
+    }
+
+    if (action === "auth-mode") {
+      authMode = actionTarget.dataset.mode === "register" ? "register" : "sign-in";
+      render();
+      return;
+    }
+
+    if (action === "filter-tag") {
+      const tag = actionTarget.dataset.tag || "";
+      activeTagFilter = tag ? tag : null;
+      render();
+      return;
+    }
+
     if (action === "open-exercise") {
       selectedExerciseId = actionTarget.dataset.id;
       render();

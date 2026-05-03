@@ -1,10 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="The Dojo icon">
-  <rect width="512" height="512" rx="92" fill="#0b0c0f"/>
-  <rect x="76" y="88" width="360" height="336" rx="34" fill="#14161a" stroke="#303641" stroke-width="12"/>
-  <path d="M132 335 L206 278 L267 301 L377 181" fill="none" stroke="#7ee787" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="132" cy="335" r="20" fill="#f5c56b"/>
-  <circle cx="206" cy="278" r="20" fill="#7ab7ff"/>
-  <circle cx="267" cy="301" r="20" fill="#ff8a7a"/>
-  <circle cx="377" cy="181" r="22" fill="#7ee787"/>
-  <path d="M130 388 H382" stroke="#303641" stroke-width="18" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="The Dojo">
+  <rect width="512" height="512" rx="96" fill="#16110d"/>
+  <path d="M 340 110 A 168 168 0 1 1 199 98"
+        fill="none"
+        stroke="#c8453a"
+        stroke-width="36"
+        stroke-linecap="round"/>
 </svg>
