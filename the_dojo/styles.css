@@ -31,6 +31,8 @@
 html {
   min-height: 100%;
   background: var(--bg);
+  scroll-behavior: smooth;
+  overscroll-behavior: none;
 }
 
 body {
@@ -39,12 +41,15 @@ body {
   background: var(--bg);
   color: var(--text);
   font-size: 16px;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 button,
 input,
 textarea {
   font: inherit;
+  touch-action: manipulation;
 }
 
 button {
@@ -55,17 +60,21 @@ button {
   width: min(100%, 760px);
   min-height: 100svh;
   margin: 0 auto;
-  padding: calc(env(safe-area-inset-top) + 18px) 18px calc(env(safe-area-inset-bottom) + 28px);
+  padding: 0 18px calc(env(safe-area-inset-bottom) + 28px);
 }
 
 .app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  padding: 6px 0 22px;
+  padding: calc(env(safe-area-inset-top) + 12px) 0 10px;
   border-bottom: 1px solid var(--line-soft);
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 }
 
 .title-block {
@@ -124,7 +133,7 @@ h3 {
 }
 
 .screen-label {
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--muted);
   font-size: 13px;
   letter-spacing: 0.02em;
@@ -263,7 +272,7 @@ h3 {
 
 .panel {
   display: grid;
-  gap: 18px;
+  gap: 14px;
 }
 
 .auth-panel {
@@ -408,7 +417,7 @@ h3 {
 }
 
 .entry-form {
-  padding: 16px;
+  padding: 12px;
   border: 1px solid var(--line-soft);
   border-radius: 10px;
   background: var(--surface);
@@ -419,12 +428,23 @@ h3 {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .form-mode-toggle {
   display: flex;
   gap: 6px;
+}
+
+.form-mode-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.copy-last-btn {
+  font-size: 12px;
+  margin: 0;
 }
 
 .form-mode-toggle .filter-chip {
@@ -775,10 +795,19 @@ h3 {
 
 .detail-title-row {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
   min-width: 0;
+}
+
+.detail-name-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .detail-title h2 {
@@ -786,8 +815,11 @@ h3 {
   font-weight: 500;
   letter-spacing: 0.01em;
   overflow-wrap: anywhere;
-  flex: 1 1 auto;
-  min-width: 0;
+  margin: 0;
+}
+
+.detail-name-group .tag-list {
+  display: inline-flex;
 }
 
 .detail-actions {
@@ -840,10 +872,10 @@ h3 {
 
 .entry-row {
   display: grid;
-  grid-template-columns: minmax(116px, 1fr) 72px 72px minmax(140px, 1.4fr) 44px;
+  grid-template-columns: 1.2fr 70px 70px 1.5fr 40px;
   gap: 8px;
   align-items: center;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--line-soft);
 }
 
@@ -875,9 +907,9 @@ h3 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 14px;
+  padding: 6px 14px;
   font-family: var(--serif);
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .entry-day-count {
@@ -1018,65 +1050,64 @@ h3 {
 
   .entry-day-header {
     border: 1px solid var(--line-soft);
-    border-radius: 10px;
+    border-radius: 8px 8px 0 0;
     background: rgba(200, 69, 58, 0.1);
     margin-top: 4px;
+    padding: 6px 12px;
+    font-size: 14px;
   }
 
   .entry-row {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: repeat(3, 1fr) 32px;
     grid-template-areas:
-      "resistance delete"
-      "sets delete"
-      "reps delete"
-      "notes notes";
-    gap: 10px 12px;
+      "resistance sets reps delete"
+      "notes notes notes notes";
+    gap: 8px;
     border: 1px solid var(--line-soft);
-    border-radius: 10px;
+    border-top: 0;
+    border-radius: 0;
     background: var(--surface);
-    padding: 12px;
+    padding: 8px 12px;
   }
 
   .entry-row:last-child {
     border-bottom: 1px solid var(--line-soft);
+    border-radius: 0 0 8px 8px;
   }
 
   .entry-cell {
-    display: grid;
-    grid-template-columns: 82px minmax(0, 1fr);
-    gap: 8px;
-    align-items: center;
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
 
   .entry-cell::before {
-    content: attr(data-label);
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-size: 9px;
+    opacity: 0.8;
   }
 
-  .entry-cell:nth-of-type(1) {
-    grid-area: resistance;
+  .entry-row .text-input {
+    min-height: 36px;
+    padding: 4px 8px;
+    font-size: 14px;
+    text-align: center;
   }
 
-  .entry-cell:nth-of-type(2) {
-    grid-area: sets;
-  }
-
-  .entry-cell:nth-of-type(3) {
-    grid-area: reps;
-  }
-
-  .entry-cell:nth-of-type(4) {
-    grid-area: notes;
-    grid-template-columns: 1fr;
-    align-items: stretch;
+  .entry-cell:nth-of-type(4) .text-input {
+    text-align: left;
   }
 
   .entry-delete {
-    grid-area: delete;
-    align-self: start;
+    width: 32px;
+    min-height: 32px;
+    margin-top: 14px;
+  }
+
+  .entry-fields {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .entry-fields .field:nth-child(4) {
+    grid-column: span 2;
   }
 }

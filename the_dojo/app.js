@@ -699,7 +699,7 @@
     const reorderable = !options || options.reorderable !== false;
     const entries = sortedEntriesForExercise(exercise.id);
     const latest = entries[0] || null;
-    const countText = entries.length === 1 ? "1 row" : `${entries.length} rows`;
+    const countText = entries.length === 1 ? "1 set" : `${entries.length} sets`;
     const handleMarkup = reorderable
       ? `<button class="drag-handle" type="button" data-drag-handle data-id="${escapeHtml(exercise.id)}" aria-label="Drag ${escapeHtml(exercise.name)} to reorder. Use arrow keys to move."></button>`
       : "";
@@ -732,13 +732,15 @@
           <button class="icon-button is-quiet" type="button" aria-label="Back to exercises" data-action="back">&larr;</button>
           <div class="detail-title">
             <div class="detail-title-row">
-              <h2>${escapeHtml(exercise.name)}</h2>
+              <div class="detail-name-group">
+                <h2>${escapeHtml(exercise.name)}</h2>
+                ${exercise.tags.length ? renderTagChips(exercise.tags) : ""}
+              </div>
               <div class="detail-actions" role="group" aria-label="Exercise actions">
                 <button class="icon-button is-quiet detail-action-button ${editingExerciseId === exercise.id ? "is-active" : ""}" type="button" data-action="toggle-exercise-edit" aria-label="Edit exercise">&#9998;</button>
                 <button class="icon-button is-quiet detail-action-button danger" type="button" data-action="delete-exercise" aria-label="Delete exercise">&times;</button>
               </div>
             </div>
-            ${exercise.tags.length ? renderTagChips(exercise.tags) : ""}
             ${editingExerciseId === exercise.id ? `
               <form id="exercise-edit-form" class="edit-exercise-form" autocomplete="off">
                 <label class="field">
@@ -763,13 +765,19 @@
   }
 
   function renderEntryForm() {
+    const entries = sortedEntriesForExercise(selectedExerciseId);
+    const latest = entries[0] || null;
+
     const modeRow = `
       <div class="form-mode-row">
         <div class="form-mode-toggle" role="group" aria-label="Entry form mode">
           <button type="button" class="filter-chip ${entryFormMode === "quick" ? "is-active" : ""}" data-action="form-mode" data-mode="quick">Quick</button>
           <button type="button" class="filter-chip ${entryFormMode === "shorthand" ? "is-active" : ""}" data-action="form-mode" data-mode="shorthand">Shorthand</button>
         </div>
-        ${entryFormMode === "shorthand" ? `<button type="button" class="icon-button is-quiet" data-action="show-shorthand-help" aria-label="Shorthand help">?</button>` : ""}
+        <div class="form-mode-tools">
+          ${latest ? `<button type="button" class="link-button copy-last-btn" data-action="copy-last">Copy last</button>` : ""}
+          ${entryFormMode === "shorthand" ? `<button type="button" class="icon-button is-quiet" data-action="show-shorthand-help" aria-label="Shorthand help">?</button>` : ""}
+        </div>
       </div>
     `;
 
@@ -781,7 +789,7 @@
             <span>Sets</span>
             <textarea class="text-input shorthand-input" name="shorthand" rows="2" placeholder="2x50@40, 1x40@10" autocomplete="off"></textarea>
           </label>
-          <button class="button button-primary" type="submit">Add rows</button>
+          <button class="button button-primary" type="submit">Add</button>
         </form>
       `;
     }
@@ -1211,6 +1219,30 @@
       }
       setSessionEntryFormMode(nextMode);
       render();
+      return;
+    }
+
+    if (action === "copy-last") {
+      const entries = sortedEntriesForExercise(selectedExerciseId);
+      const latest = entries[0];
+      if (!latest) {
+        return;
+      }
+
+      const form = document.getElementById("entry-form");
+      if (!form) {
+        return;
+      }
+
+      if (entryFormMode === "shorthand") {
+        const shorthand = `${latest.sets}x${latest.reps}${latest.resistance ? "@" + latest.resistance : ""}`;
+        form.elements.shorthand.value = shorthand;
+      } else {
+        form.elements.resistance.value = latest.resistance;
+        form.elements.sets.value = latest.sets;
+        form.elements.reps.value = latest.reps;
+        form.elements.notes.value = latest.notes;
+      }
       return;
     }
 
