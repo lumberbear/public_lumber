@@ -34,6 +34,12 @@ function photoStoragePath(bookId, photoId) {
   return `${bookId}/${photoId}.jpg`;
 }
 
+function inviteCode() {
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
 async function signedUrlMap(paths) {
   const uniquePaths = [...new Set(paths.filter(Boolean))];
   const map = new Map();
@@ -190,11 +196,30 @@ export const api = {
   },
 
   async createInvite() {
-    const { data, error } = await supabase.rpc("create_adventure_book_invite", {
-      target_book_id: requireBookId(),
-    });
-    throwIfError(error);
-    return data;
+    const bookId = requireBookId();
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    throwIfError(userError);
+    const userId = userData?.user?.id;
+    if (!userId) {
+      throw new Error("Sign in first.");
+    }
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const code = inviteCode();
+      const { error } = await supabase.from("adventure_book_invites").insert({
+        book_id: bookId,
+        code,
+        created_by: userId,
+      });
+      if (!error) {
+        return code;
+      }
+      if (error.code !== "23505") {
+        throw error;
+      }
+    }
+
+    throw new Error("Could not create a unique invite code.");
   },
 
   async joinBook(code) {

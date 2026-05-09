@@ -171,7 +171,7 @@ begin
   end if;
 
   loop
-    new_code := upper(encode(gen_random_bytes(6), 'hex'));
+    new_code := upper(encode(extensions.gen_random_bytes(6), 'hex'));
     begin
       insert into public.adventure_book_invites (book_id, code, created_by)
       values (target_book_id, new_code, auth.uid());
