@@ -114,36 +114,74 @@ function BookSetup({ error, busy, inviteCode, setInviteCode, onCreate, onJoin, o
   );
 }
 
-function AccountBar({ user, activeBook, books, inviteUrl, onInvite, onSignOut, onSwitchBook }) {
+function AccountMenu({
+  user,
+  activeBook,
+  books,
+  inviteUrl,
+  open,
+  onOpen,
+  onClose,
+  onInvite,
+  onSignOut,
+  onSwitchBook,
+}) {
   return (
-    <div style={accountBarStyle}>
-      {books.length > 1 ? (
-        <select
-          value={activeBook?.id || ""}
-          onChange={(event) => onSwitchBook(event.target.value)}
-          style={accountSelectStyle}
-          aria-label="Adventure book"
-        >
-          {books.map((book) => (
-            <option key={book.id} value={book.id}>{book.title}</option>
-          ))}
-        </select>
-      ) : (
-        <span style={accountBookStyle}>{activeBook?.title || "Adventure Book"}</span>
+    <>
+      <button
+        type="button"
+        onClick={onOpen}
+        style={settingsFabStyle}
+        aria-label="Open settings"
+        aria-expanded={open ? "true" : "false"}
+      >
+        ⚙
+      </button>
+      {open && (
+        <div style={modalBackdropStyle} onClick={onClose}>
+          <div style={settingsModalStyle} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-label="Settings">
+            <div style={settingsHeaderStyle}>
+              <div>
+                <h2 style={settingsTitleStyle}>Settings</h2>
+                <p style={settingsMetaStyle}>{user.email}</p>
+              </div>
+              <button type="button" onClick={onClose} style={modalCloseStyle} aria-label="Close settings">×</button>
+            </div>
+            <label style={fieldStyle}>
+              <span>Book</span>
+              {books.length > 1 ? (
+                <select
+                  value={activeBook?.id || ""}
+                  onChange={(event) => onSwitchBook(event.target.value)}
+                  style={inputStyle}
+                  aria-label="Adventure book"
+                >
+                  {books.map((book) => (
+                    <option key={book.id} value={book.id}>{book.title}</option>
+                  ))}
+                </select>
+              ) : (
+                <div style={readOnlyValueStyle}>{activeBook?.title || "Adventure Book"}</div>
+              )}
+            </label>
+            <button type="button" onClick={onInvite} style={primaryButton}>Create invite link</button>
+            {inviteUrl && (
+              <label style={fieldStyle}>
+                <span>Invite link</span>
+                <input
+                  readOnly
+                  value={inviteUrl}
+                  onFocus={(event) => event.target.select()}
+                  style={inputStyle}
+                  aria-label="Invite link"
+                />
+              </label>
+            )}
+            <button type="button" onClick={onSignOut} style={secondaryButton}>Sign out</button>
+          </div>
+        </div>
       )}
-      <span style={accountEmailStyle}>{user.email}</span>
-      <button type="button" onClick={onInvite} style={accountButtonStyle}>Invite</button>
-      <button type="button" onClick={onSignOut} style={accountButtonStyle}>Sign out</button>
-      {inviteUrl && (
-        <input
-          readOnly
-          value={inviteUrl}
-          onFocus={(event) => event.target.select()}
-          style={inviteInputStyle}
-          aria-label="Invite link"
-        />
-      )}
-    </div>
+    </>
   );
 }
 
@@ -159,6 +197,7 @@ export default function App() {
   const [bookError, setBookError] = useState("");
   const [inviteCode, setInviteCode] = useState(invitationCodeFromUrl);
   const [inviteUrl, setInviteUrl] = useState("");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [view, setView] = useState("cover");
   const [entries, setEntries] = useState([]);
   const [current, setCurrent] = useState(null);
@@ -212,6 +251,7 @@ export default function App() {
     setEditId(null);
     setPostIdx(null);
     setInviteUrl("");
+    setSettingsOpen(false);
   }
 
   async function loadBookState(preferredBookId = null) {
@@ -344,6 +384,7 @@ export default function App() {
     setEditId(null);
     setPostIdx(null);
     setInviteUrl("");
+    setSettingsOpen(false);
     if (selected) {
       await loadAll();
     }
@@ -467,11 +508,14 @@ export default function App() {
 
   return (
     <div>
-      <AccountBar
+      <AccountMenu
         user={user}
         activeBook={activeBook}
         books={books}
         inviteUrl={inviteUrl}
+        open={settingsOpen}
+        onOpen={() => setSettingsOpen(true)}
+        onClose={() => setSettingsOpen(false)}
         onInvite={createInvite}
         onSignOut={signOut}
         onSwitchBook={switchBook}
@@ -630,57 +674,86 @@ const errorStyle = {
   padding: "10px 12px",
 };
 
-const accountBarStyle = {
+const settingsFabStyle = {
   position: "fixed",
   zIndex: 1000,
-  left: "12px",
-  bottom: "12px",
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  flexWrap: "wrap",
-  maxWidth: "calc(100vw - 24px)",
-  background: "rgba(34,14,2,0.82)",
+  right: "14px",
+  bottom: "14px",
+  width: "42px",
+  height: "42px",
+  borderRadius: "999px",
+  border: "1px solid rgba(255,255,255,0.28)",
+  background: "rgba(34,14,2,0.68)",
   color: "white",
-  border: "1px solid rgba(255,255,255,0.22)",
-  borderRadius: "14px",
-  padding: "8px",
-  fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
-  fontSize: "0.78rem",
+  fontSize: "1rem",
+  cursor: "pointer",
   boxShadow: "0 8px 24px rgba(0,0,0,0.28)",
+  backdropFilter: "blur(12px)",
 };
 
-const accountButtonStyle = {
-  border: "1px solid rgba(255,255,255,0.25)",
+const modalBackdropStyle = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 1002,
+  background: "rgba(34,14,2,0.38)",
+  display: "flex",
+  alignItems: "flex-end",
+  justifyContent: "center",
+  padding: "18px",
+  boxSizing: "border-box",
+};
+
+const settingsModalStyle = {
+  width: "min(420px, 100%)",
+  background: "rgba(255,255,255,0.96)",
+  color: "#5c3d11",
+  border: "1px solid rgba(92,61,17,0.18)",
+  borderRadius: "18px",
+  boxShadow: "0 22px 70px rgba(34,14,2,0.36)",
+  padding: "18px",
+  display: "grid",
+  gap: "14px",
+  fontFamily: "'Lora',serif",
+};
+
+const settingsHeaderStyle = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "12px",
+};
+
+const settingsTitleStyle = {
+  margin: 0,
+  fontFamily: "'Caveat',cursive",
+  fontSize: "2rem",
+  lineHeight: 1,
+};
+
+const settingsMetaStyle = {
+  margin: "4px 0 0",
+  fontSize: "0.82rem",
+  opacity: 0.72,
+};
+
+const modalCloseStyle = {
+  border: "1px solid rgba(92,61,17,0.2)",
   borderRadius: "999px",
-  background: "rgba(255,255,255,0.12)",
-  color: "white",
-  padding: "5px 9px",
-  font: "inherit",
+  background: "white",
+  color: "#5c3d11",
+  width: "32px",
+  height: "32px",
+  fontSize: "1.2rem",
+  lineHeight: 1,
   cursor: "pointer",
 };
 
-const accountSelectStyle = {
-  ...accountButtonStyle,
-  maxWidth: "160px",
-};
-
-const accountBookStyle = {
-  fontWeight: 800,
-};
-
-const accountEmailStyle = {
-  opacity: 0.78,
-};
-
-const inviteInputStyle = {
-  minWidth: "min(360px, calc(100vw - 48px))",
-  border: "1px solid rgba(255,255,255,0.25)",
-  borderRadius: "8px",
-  background: "rgba(255,255,255,0.95)",
-  color: "#3b2208",
-  padding: "6px 8px",
-  font: "inherit",
+const readOnlyValueStyle = {
+  border: "1.5px solid rgba(92,61,17,0.16)",
+  borderRadius: "10px",
+  padding: "11px 12px",
+  background: "rgba(92,61,17,0.06)",
+  fontWeight: 700,
 };
 
 const floatingErrorStyle = {
