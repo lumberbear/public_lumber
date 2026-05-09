@@ -434,7 +434,7 @@
 
   function entrySummary(entry) {
     if (!entry) {
-      return "No rows yet";
+      return "Empty Log";
     }
 
     const pieces = [];
@@ -757,7 +757,7 @@
 
         ${renderEntryForm()}
 
-        ${entries.length ? renderEntryTable(entries) : renderEmpty("No rows yet.")}
+        ${entries.length ? renderEntryTable(entries) : renderEmpty("Empty Log")}
       </section>
     `;
   }
@@ -852,7 +852,7 @@
                 <label class="entry-cell" data-label="Notes">
                   <input class="text-input" aria-label="Notes" type="text" maxlength="120" data-entry-field="notes" value="${escapeHtml(entry.notes)}">
                 </label>
-                <button class="icon-button is-quiet entry-delete" type="button" aria-label="Delete row" data-action="delete-entry">&times;</button>
+                <button class="icon-button is-quiet entry-delete" type="button" aria-label="Delete log entry" data-action="delete-entry">&times;</button>
               </div>
             `).join("")}
           `).join("")}
@@ -1492,7 +1492,7 @@
 
   async function deleteEntry(entryId) {
     const user = requireUser();
-    const confirmed = window.confirm("Delete this row from The Dojo?");
+    const confirmed = window.confirm("Delete this log entry from The Dojo?");
     if (!confirmed) {
       return;
     }
