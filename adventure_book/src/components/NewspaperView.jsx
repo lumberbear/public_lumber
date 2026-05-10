@@ -1,16 +1,72 @@
 import { useRef, useState } from "react";
-import { THEMES, S } from "../lib/constants.js";
+import { S } from "../lib/constants.js";
 import { formatDate, normPhoto } from "../lib/helpers.js";
 import { downloadElementAsPdf } from "../lib/pdf.js";
 
 const NEWS_PAPER = "#f4ecd8";
 const NEWS_INK = "#1a1a1a";
+const NEWS_RULE = "#1a1a1a";
+const NEWS_COL_RULE = "#999";
+const NEWS_CAPTION = "#444";
+const NAV_BG = "#2a2a2a";
 
 const NEWS_FONTS =
-  "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lora:ital,wght@0,400;0,600;1,400&display=swap');" +
+  "@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Lora:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap');" +
   "*{box-sizing:border-box}";
 
-function renderBody(paragraphs, photos, t) {
+function shortDateline(d) {
+  if (!d) return "";
+  try {
+    return new Date(d + "T12:00:00")
+      .toLocaleDateString("en-US", { month: "long", day: "numeric" })
+      .toUpperCase();
+  } catch {
+    return "";
+  }
+}
+
+function PhotoFigure({ ph, hideCaption }) {
+  const isFull = ph.align === "full";
+  const isRight = ph.align === "right";
+  const wrapStyle = isFull
+    ? { margin: "10px 0 18px 0", columnSpan: "all", breakInside: "avoid" }
+    : isRight
+      ? { float: "right", margin: "4px 0 14px 16px", maxWidth: "92%", breakInside: "avoid" }
+      : { float: "left", margin: "4px 16px 14px 0", maxWidth: "92%", breakInside: "avoid" };
+  return (
+    <figure style={{ ...wrapStyle, padding: 0 }}>
+      <img
+        src={ph.src}
+        alt=""
+        crossOrigin="anonymous"
+        style={{ width: "100%", display: "block", border: "1px solid " + NEWS_INK }}
+      />
+      {!hideCaption && ph.caption && (
+        <figcaption style={{
+          fontFamily: "'Lora',serif",
+          fontStyle: "italic",
+          fontSize: "0.85rem",
+          color: NEWS_CAPTION,
+          marginTop: "5px",
+          lineHeight: 1.35,
+        }}>
+          {ph.caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
+const paraStyle = { margin: "0 0 1em 0", whiteSpace: "pre-wrap" };
+const datelineStyle = {
+  fontFamily: "'Lora',serif",
+  fontWeight: 700,
+  letterSpacing: "1px",
+  textTransform: "uppercase",
+  color: NEWS_INK,
+};
+
+function renderBody(paragraphs, photos, datelineOpener) {
   if (!paragraphs.length && !photos.length) {
     return <p style={{ fontStyle: "italic", opacity: 0.6 }}>No journal entry yet.</p>;
   }
@@ -36,6 +92,9 @@ function renderBody(paragraphs, photos, t) {
           const [, lead, firstChar, rest] = match;
           els.push(
             <p key={"p" + i} style={paraStyle}>
+              {datelineOpener && (
+                <span style={datelineStyle}>{datelineOpener} — </span>
+              )}
               {lead}
               <span style={{
                 float: "left",
@@ -43,7 +102,7 @@ function renderBody(paragraphs, photos, t) {
                 fontWeight: 900,
                 fontSize: "4.4rem",
                 lineHeight: "0.85",
-                color: t.accent,
+                color: NEWS_INK,
                 paddingRight: "8px",
                 paddingTop: "6px",
                 marginBottom: "-6px",
@@ -62,34 +121,19 @@ function renderBody(paragraphs, photos, t) {
   return els;
 }
 
-const paraStyle = { margin: "0 0 1em 0", whiteSpace: "pre-wrap" };
-
-function PhotoFigure({ ph }) {
-  const isFull = ph.align === "full";
-  const isRight = ph.align === "right";
-  const style = isFull
-    ? { margin: "10px 0 16px 0", columnSpan: "all", breakInside: "avoid" }
-    : isRight
-      ? { float: "right", margin: "4px 0 12px 14px", maxWidth: "92%", breakInside: "avoid" }
-      : { float: "left", margin: "4px 14px 12px 0", maxWidth: "92%", breakInside: "avoid" };
-  return (
-    <figure style={style}>
-      <img
-        src={ph.src}
-        alt=""
-        crossOrigin="anonymous"
-        style={{ width: "100%", display: "block", border: "1px solid " + NEWS_INK }}
-      />
-    </figure>
-  );
-}
-
 export default function NewspaperView({ entry, onBack, onEdit, onDelete }) {
-  const t = entry.customTheme || THEMES[entry.theme] || THEMES["Golden Hour"];
   const allPhotos = (entry.photos || []).map((p, i) => normPhoto(p, i));
   const heroPhoto = allPhotos[0] || null;
   const inlinePhotos = allPhotos.slice(1);
   const paragraphs = (entry.journal || "").split(/\n\n+/).filter(Boolean);
+  const meta = entry.meta || {};
+  const kicker = (meta.kicker || "").trim();
+  const byline = (meta.byline || "").trim() || "By The Editors";
+  const datelineLocation = (meta.datelineLocation || "").trim();
+  const datelineOpener = datelineLocation
+    ? (entry.date ? `${datelineLocation}, ${shortDateline(entry.date)}` : datelineLocation)
+    : "";
+
   const [generating, setGenerating] = useState(false);
   const pdfRef = useRef();
 
@@ -109,36 +153,36 @@ export default function NewspaperView({ entry, onBack, onEdit, onDelete }) {
       <style>{NEWS_FONTS + " @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}"}</style>
 
       <div style={{
-        background: "linear-gradient(135deg," + t.header + "," + t.accent + ")",
-        padding: "16px 24px",
+        background: NAV_BG,
+        padding: "14px 24px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        boxShadow: "0 4px 14px " + t.border + "88",
+        boxShadow: "0 4px 14px rgba(0,0,0,0.35)",
         flexWrap: "wrap",
         gap: "8px",
       }}>
-        <button onClick={onBack} style={S.btn("rgba(255,255,255,0.15)", "white")}>← Contents</button>
+        <button onClick={onBack} style={S.btn("rgba(255,255,255,0.12)", "white")}>← Contents</button>
         <div style={{
           fontFamily: "'Playfair Display',serif",
-          fontSize: "1.4rem",
+          fontSize: "1.3rem",
           color: "white",
           fontWeight: 700,
           textAlign: "center",
           letterSpacing: "1.5px",
         }}>
-          📰 {entry.title}
+          📰 {entry.title || "Untitled"}
         </div>
         <div style={{ display: "flex", gap: "8px" }}>
-          <button onClick={onEdit} style={S.btn("rgba(255,255,255,0.15)", "white")}>✏️ Edit</button>
+          <button onClick={onEdit} style={S.btn("rgba(255,255,255,0.12)", "white")}>✏️ Edit</button>
           <button
             onClick={downloadPDF}
             disabled={generating}
-            style={S.btn("rgba(255,255,255,0.15)", "white", { opacity: generating ? 0.6 : 1 })}
+            style={S.btn("rgba(255,255,255,0.12)", "white", { opacity: generating ? 0.6 : 1 })}
           >
             {generating ? <span style={{ display: "inline-block", animation: "spin 1s linear infinite" }}>⏳</span> : "⬇️"} PDF
           </button>
-          <button onClick={onDelete} style={S.btn("rgba(229,62,62,0.5)", "white")}>🗑️</button>
+          <button onClick={onDelete} style={S.btn("rgba(229,62,62,0.45)", "white")}>🗑️</button>
         </div>
       </div>
 
@@ -147,22 +191,38 @@ export default function NewspaperView({ entry, onBack, onEdit, onDelete }) {
         maxWidth: "880px",
         margin: "0 auto",
         padding: "44px 52px 52px 52px",
+        color: NEWS_INK,
       }}>
-        <div style={{ textAlign: "center", paddingTop: "4px" }}>
+        {kicker && (
+          <div style={{
+            textAlign: "center",
+            fontFamily: "'Lora',serif",
+            fontWeight: 700,
+            fontSize: "0.85rem",
+            letterSpacing: "3px",
+            textTransform: "uppercase",
+            color: NEWS_INK,
+            marginBottom: "8px",
+          }}>
+            {kicker}
+          </div>
+        )}
+
+        <div style={{ textAlign: "center", paddingTop: "2px" }}>
           <div style={{
             fontFamily: "'Playfair Display',serif",
             fontWeight: 900,
             fontSize: "3.6rem",
             letterSpacing: "2px",
-            color: t.header,
+            color: NEWS_INK,
             lineHeight: 1,
           }}>
             THE ADVENTURE GAZETTE
           </div>
         </div>
 
-        <div style={{ borderTop: "3px solid " + t.header, marginTop: "14px" }} />
-        <div style={{ borderTop: "1px solid " + t.header, marginTop: "2px" }} />
+        <div style={{ borderTop: "3px solid " + NEWS_RULE, marginTop: "14px" }} />
+        <div style={{ borderTop: "1px solid " + NEWS_RULE, marginTop: "2px" }} />
 
         <div style={{
           display: "flex",
@@ -182,19 +242,19 @@ export default function NewspaperView({ entry, onBack, onEdit, onDelete }) {
             {formatDate(entry.date) || "Today"}
           </span>
           <span style={{ fontSize: "1rem", letterSpacing: "4px" }}>
-            {entry.stickers?.length ? entry.stickers.join(" ") : "★"}
+            {entry.stickers?.length ? entry.stickers.join(" ") : "PRICE: ONE SMILE"}
           </span>
         </div>
 
-        <div style={{ borderTop: "1px solid " + NEWS_INK, marginBottom: "36px" }} />
+        <div style={{ borderTop: "1px solid " + NEWS_RULE, marginBottom: "36px" }} />
 
         <h1 style={{
           fontFamily: "'Playfair Display',serif",
-          fontWeight: 700,
-          fontSize: "2.7rem",
+          fontWeight: 900,
+          fontSize: "2.9rem",
           color: NEWS_INK,
           margin: 0,
-          lineHeight: 1.15,
+          lineHeight: 1.1,
           letterSpacing: "-0.5px",
         }}>
           {entry.title || "Untitled"}
@@ -206,7 +266,7 @@ export default function NewspaperView({ entry, onBack, onEdit, onDelete }) {
             fontStyle: "italic",
             fontSize: "1.18rem",
             color: NEWS_INK,
-            opacity: 0.82,
+            opacity: 0.85,
             marginTop: "12px",
             maxWidth: "75%",
             lineHeight: 1.45,
@@ -224,15 +284,15 @@ export default function NewspaperView({ entry, onBack, onEdit, onDelete }) {
         }}>
           <span style={{
             fontFamily: "'Lora',serif",
-            fontWeight: 600,
-            fontSize: "0.82rem",
+            fontWeight: 700,
+            fontSize: "0.85rem",
             letterSpacing: "1.5px",
             textTransform: "uppercase",
             color: NEWS_INK,
           }}>
-            By The Editors
+            {byline}
           </span>
-          <span style={{ flex: 1, borderTop: "1px solid " + t.header, opacity: 0.5 }} />
+          <span style={{ flex: 1, borderTop: "1px solid " + NEWS_INK, opacity: 0.6 }} />
         </div>
 
         {heroPhoto && (
@@ -243,13 +303,25 @@ export default function NewspaperView({ entry, onBack, onEdit, onDelete }) {
               crossOrigin="anonymous"
               style={{ width: "100%", display: "block", border: "1px solid " + NEWS_INK }}
             />
+            {heroPhoto.caption && (
+              <figcaption style={{
+                fontFamily: "'Lora',serif",
+                fontStyle: "italic",
+                fontSize: "0.9rem",
+                color: NEWS_CAPTION,
+                marginTop: "6px",
+                lineHeight: 1.35,
+              }}>
+                {heroPhoto.caption}
+              </figcaption>
+            )}
           </figure>
         )}
 
         <div style={{
           columnCount: 2,
           columnGap: "32px",
-          columnRule: "1px solid " + t.header + "55",
+          columnRule: "1px solid " + NEWS_COL_RULE,
           fontFamily: "'Lora',serif",
           fontSize: "1.02rem",
           lineHeight: 1.7,
@@ -257,21 +329,18 @@ export default function NewspaperView({ entry, onBack, onEdit, onDelete }) {
           textAlign: "justify",
           hyphens: "auto",
         }}>
-          {renderBody(paragraphs, inlinePhotos, t)}
+          {renderBody(paragraphs, inlinePhotos, datelineOpener)}
           <div style={{ clear: "both" }} />
         </div>
 
         <div style={{
           textAlign: "center",
           marginTop: "36px",
-          fontFamily: "'Playfair Display',serif",
-          fontStyle: "italic",
-          fontSize: "1rem",
-          opacity: 0.5,
+          fontSize: "1.4rem",
           color: NEWS_INK,
-          letterSpacing: "4px",
+          lineHeight: 1,
         }}>
-          — FIN —
+          ▪
         </div>
       </div>
     </div>

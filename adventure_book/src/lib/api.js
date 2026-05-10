@@ -87,6 +87,7 @@ function photoFromRow(row, urlByPath) {
     align: row.align || "left",
     para: row.para ?? 0,
     comments: parseJson(row.comments, []),
+    caption: row.caption || "",
   };
 }
 
@@ -111,6 +112,7 @@ function entryFromRow(row, allPhotoRows, urlByPath) {
     profilePhoto: profilePhoto ? urlByPath.get(profilePhoto.storage_path) || null : null,
     profilePhotoId: row.profile_photo_id || null,
     stickers: parseJson(row.stickers, []),
+    meta: parseJson(row.meta, {}),
     photos,
   };
 }
@@ -278,6 +280,7 @@ export const api = {
       custom_theme: entry.customTheme || null,
       profile_photo_id: entry.profilePhotoId || null,
       stickers: entry.stickers || [],
+      meta: entry.meta || {},
     };
 
     const saved = await supabase
@@ -316,6 +319,7 @@ export const api = {
           align: photo.align || "left",
           para: photo.para ?? 0,
           comments: photo.comments || [],
+          caption: photo.caption || null,
           position,
         })
         .eq("book_id", bookId)

@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { api } from "../lib/api.js";
 
-export default function EditPhoto({ photo, t, numParas, onAttr, onRemove, onDragStart, onReplace, badge }) {
+export default function EditPhoto({ photo, t, numParas, onAttr, onRemove, onDragStart, onReplace, badge, showCaption }) {
   const [show, setShow] = useState(false);
   const replaceRef = useRef();
   const isFull = photo.align === "full";
@@ -89,6 +89,27 @@ export default function EditPhoto({ photo, t, numParas, onAttr, onRemove, onDrag
           style={{ padding: "2px 7px", borderRadius: "4px", border: "1px solid #fca5a5", background: "white", color: "#e53e3e", cursor: "pointer", fontFamily: "'Caveat',cursive", fontSize: "0.82rem" }}
         >✕</button>
       </div>
+      {showCaption && (
+        <input
+          value={photo.caption || ""}
+          onChange={(e) => onAttr("caption", e.target.value)}
+          placeholder="Photo caption…"
+          style={{
+            display: "block",
+            width: "100%",
+            marginTop: "6px",
+            padding: "4px 8px",
+            border: "1px solid " + t.border,
+            borderRadius: "4px",
+            background: t.paper,
+            color: t.text,
+            fontFamily: "'Lora',serif",
+            fontStyle: "italic",
+            fontSize: "0.82rem",
+            outline: "none",
+          }}
+        />
+      )}
       <input ref={replaceRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleReplace} />
     </div>
   );

@@ -17,9 +17,12 @@ export default function EditorPage({
 }) {
   const t = form.customTheme || THEMES[form.theme] || THEMES["Golden Hour"];
   const isIG = form.template === "instagram";
+  const isNews = form.template === "newspaper";
   const [settingsOpen, setSettingsOpen] = useState(false);
   const dragIdx = useRef(null);
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const meta = form.meta || {};
+  const updateMeta = (k, v) => setForm((p) => ({ ...p, meta: { ...(p.meta || {}), [k]: v } }));
 
   const paragraphs = useMemo(() => {
     const parts = form.journal.split(/\n\n+/);
@@ -158,6 +161,7 @@ export default function EditorPage({
               t={t}
               numParas={numParas}
               badge={isIG ? pc : null}
+              showCaption={isNews}
               onAttr={(k, v) => setPhotoAttr(pidx, k, v)}
               onRemove={() => removePhoto(pidx)}
               onReplace={(uploaded) => replacePhoto(pidx, uploaded)}
@@ -212,7 +216,7 @@ export default function EditorPage({
       </div>
       {settingsOpen && (
         <div style={{ background: t.header, padding: "16px 24px", borderBottom: "3px solid " + t.border + "55", display: "flex", flexWrap: "wrap", gap: "18px", alignItems: "flex-start" }}>
-          {!form.customTheme && !isIG && (
+          {!form.customTheme && !isIG && !isNews && (
             <div>
               <label style={{ ...S.lbl(t), color: "rgba(255,255,255,0.85)" }}>Theme</label>
               <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
@@ -315,14 +319,31 @@ export default function EditorPage({
               t={t}
             />
           )}
+          {isNews && (
+            <input
+              value={meta.kicker || ""}
+              onChange={(e) => updateMeta("kicker", e.target.value)}
+              placeholder="Kicker — section label, e.g. WEEKEND TRAVEL"
+              style={{
+                fontFamily: "'Lora',serif", fontSize: "0.85rem", fontWeight: 700,
+                letterSpacing: "2px", textTransform: "uppercase",
+                color: t.accent, background: "transparent", border: "none", outline: "none",
+                width: "100%", padding: "0 0 4px 0",
+                borderBottom: "1px dashed " + t.border, marginBottom: "8px",
+              }}
+            />
+          )}
           <input
             value={form.title}
             onChange={(e) => f("title", e.target.value)}
-            placeholder={isIG ? "Profile username…" : "Adventure title…"}
+            placeholder={isIG ? "Profile username…" : isNews ? "Headline…" : "Adventure title…"}
             style={{
-              fontFamily: "'Caveat',cursive", fontSize: "2.6rem", fontWeight: 700,
+              fontFamily: isNews ? "'Playfair Display',serif" : "'Caveat',cursive",
+              fontSize: "2.6rem",
+              fontWeight: isNews ? 900 : 700,
               color: t.text, background: "transparent", border: "none", outline: "none",
               width: "100%", padding: 0, borderBottom: "2px dashed " + t.border,
+              lineHeight: isNews ? 1.1 : 1.2,
             }}
           />
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center", marginTop: "10px" }}>
@@ -340,7 +361,7 @@ export default function EditorPage({
             <input
               value={form.caption}
               onChange={(e) => f("caption", e.target.value)}
-              placeholder={isIG ? "Bio…" : "A short caption…"}
+              placeholder={isIG ? "Bio…" : isNews ? "Subhead / deck…" : "A short caption…"}
               style={{
                 flex: 1, fontFamily: "'Lora',serif", fontSize: "1rem",
                 fontStyle: "italic", color: t.accent, background: "transparent",
@@ -349,6 +370,34 @@ export default function EditorPage({
               }}
             />
           </div>
+          {isNews && (
+            <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center", marginTop: "10px" }}>
+              <input
+                value={meta.byline || ""}
+                onChange={(e) => updateMeta("byline", e.target.value)}
+                placeholder="Byline (e.g. By Mike & Family)…"
+                style={{
+                  flex: 2, fontFamily: "'Lora',serif", fontSize: "0.95rem",
+                  fontWeight: 600, color: t.text, background: "transparent",
+                  border: "none", borderBottom: "1px dashed " + t.border,
+                  outline: "none", padding: "4px 0", minWidth: "180px",
+                }}
+              />
+              <input
+                value={meta.datelineLocation || ""}
+                onChange={(e) => updateMeta("datelineLocation", e.target.value.toUpperCase())}
+                placeholder="Dateline place (e.g. DANBURY)…"
+                style={{
+                  flex: 1, fontFamily: "'Lora',serif", fontSize: "0.95rem",
+                  fontWeight: 700, letterSpacing: "1px",
+                  color: t.text, background: "transparent",
+                  border: "none", borderBottom: "1px dashed " + t.border,
+                  outline: "none", padding: "4px 0", minWidth: "140px",
+                  textTransform: "uppercase",
+                }}
+              />
+            </div>
+          )}
           {form.stickers?.length > 0 && (
             <div style={{ fontSize: "1.6rem", letterSpacing: "5px", marginTop: "10px" }}>{form.stickers.join(" ")}</div>
           )}

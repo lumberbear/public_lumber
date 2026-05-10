@@ -25,6 +25,7 @@ function emptyForm(template) {
     template: template || "scrapbook",
     profilePhoto: null,
     profilePhotoId: null,
+    meta: {},
   };
 }
 
