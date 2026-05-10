@@ -8,6 +8,7 @@ import Contents from "./components/Contents.jsx";
 import TemplatePicker from "./components/TemplatePicker.jsx";
 import EditorPage from "./components/EditorPage.jsx";
 import EntryView from "./components/EntryView.jsx";
+import NewspaperView from "./components/NewspaperView.jsx";
 import InstagramProfile from "./components/InstagramProfile.jsx";
 import InstagramPost from "./components/InstagramPost.jsx";
 
@@ -505,6 +506,7 @@ export default function App() {
   }
 
   const isIGEntry = current && current.template === "instagram";
+  const isNewspaperEntry = current && current.template === "newspaper";
 
   return (
     <div>
@@ -546,7 +548,15 @@ export default function App() {
           avatars={avatars}
         />
       )}
-      {view === "entry" && !isIGEntry && current && (
+      {view === "entry" && isNewspaperEntry && current && (
+        <NewspaperView
+          entry={current}
+          onBack={() => setView("contents")}
+          onEdit={() => startEdit(current)}
+          onDelete={() => deleteEntry(current.id)}
+        />
+      )}
+      {view === "entry" && !isIGEntry && !isNewspaperEntry && current && (
         <EntryView
           entry={current}
           onBack={() => setView("contents")}

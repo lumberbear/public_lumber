@@ -15,7 +15,7 @@ export const TEMPLATES = [
   { id: "scrapbook",  label: "Scrapbook",   icon: "📖", desc: "Photos & journal wrapped together on a dreamy page",    ready: true,  Prev: PrevScrapbook },
   { id: "instagram",  label: "Instagram",   icon: "📱", desc: "Dark-mode profile grid with posts, captions & comments", ready: true,  Prev: PrevInstagram },
   { id: "postcard",   label: "Postcard",    icon: "📮", desc: "A handwritten note with a stamp — classic & romantic",  ready: false, Prev: PrevPostcard },
-  { id: "newspaper",  label: "Newspaper",   icon: "📰", desc: "Your weekend as a dramatic front-page headline",        ready: false, Prev: PrevNewspaper },
+  { id: "newspaper",  label: "Newspaper",   icon: "📰", desc: "Your weekend as a dramatic front-page headline",        ready: true,  Prev: PrevNewspaper },
   { id: "menu",       label: "Menu",        icon: "🍽️", desc: "Your day as a restaurant menu — starters to dessert",   ready: false, Prev: PrevMenu },
   { id: "blogpost",   label: "Blog Post",   icon: "📝", desc: "Hero image, title, subheadings — tell your story",      ready: false, Prev: PrevBlog },
   { id: "receipt",    label: "Receipt",     icon: "🧾", desc: "Every moment itemised — date, event, cost in smiles",   ready: false, Prev: PrevReceipt },
