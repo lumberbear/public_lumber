@@ -237,7 +237,11 @@ From `/Users/anoo/claude/public_lumber/`:
 
 4. `git push origin main`.
 
-5. On success, tell the user something like: "Pushed to main — GitHub Pages will rebuild in about a minute. You'll see it live at https://lumberbear.github.io/public_lumber/adventure_book/."
+5. **Always close the interaction with the live URL.** After a successful push, the final thing you say to the user must include this exact link so they can go check it:
+
+   > Your changes will shortly be live at: https://lumberbear.github.io/public_lumber/adventure_book
+
+   (GitHub Pages typically takes about a minute to rebuild after the push.) Do not end the interaction without this line — it is the user's signal that the change is on its way to production. Skip this line **only** if the push itself failed (see next section).
 
 ### If the push fails
 
