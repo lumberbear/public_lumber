@@ -146,7 +146,6 @@ export default function Contents({ entries, onOpen, onNew, onBack, lockedCount =
               </button>
             </div>
           )}
-        </div>
       </div>
     </div>
   );
