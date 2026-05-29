@@ -9,16 +9,20 @@ import ParaEditor from "./ParaEditor.jsx";
 import DropZone from "./DropZone.jsx";
 import EditPhoto from "./EditPhoto.jsx";
 import PhotoCommentEditor from "./PhotoCommentEditor.jsx";
+import PinGate, { pin } from "./PinGate.jsx";
 
 export default function EditorPage({
   form, setForm, onSubmit, onCancel,
   fileRef, analyzing, setAnalyzing,
   avatars, onAvatarChange,
+  onPinSetupComplete,
 }) {
   const t = form.customTheme || THEMES[form.theme] || THEMES["Golden Hour"];
   const isIG = form.template === "instagram";
   const isNews = form.template === "newspaper";
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const isLocked = !!(form.meta?.locked);
   const dragIdx = useRef(null);
   const f = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const meta = form.meta || {};
@@ -308,7 +312,55 @@ export default function EditorPage({
               </button>
             </div>
           )}
+          {/* ── Private toggle ── */}
+          <div>
+            <label style={{ ...S.lbl(t), color: "rgba(255,255,255,0.85)" }}>Privacy</label>
+            <button
+              onClick={() => {
+                if (!isLocked) {
+                  // Turning ON — need a PIN
+                  if (!pin.exists()) {
+                    setShowPinSetup(true); // show setup gate first
+                  } else {
+                    setForm((p) => ({ ...p, meta: { ...(p.meta || {}), locked: true } }));
+                  }
+                } else {
+                  // Turning OFF
+                  setForm((p) => ({ ...p, meta: { ...(p.meta || {}), locked: false } }));
+                }
+              }}
+              style={{
+                padding: "6px 14px", borderRadius: "20px",
+                border: "1.5px solid " + (isLocked ? "white" : "rgba(255,255,255,0.4)"),
+                background: isLocked ? "rgba(255,255,255,0.28)" : "transparent",
+                color: "white", cursor: "pointer",
+                fontFamily: "'Caveat',cursive", fontSize: "0.95rem",
+                display: "flex", alignItems: "center", gap: "6px",
+                transition: "all 0.15s",
+              }}
+            >
+              {isLocked ? "🔒 Private" : "🔓 Visible to everyone"}
+            </button>
+            {isLocked && (
+              <div style={{ marginTop: "5px", fontSize: "0.78rem", color: "rgba(255,255,255,0.65)", fontStyle: "italic" }}>
+                Only you can see this entry.
+              </div>
+            )}
+          </div>
         </div>
+      )}
+      {/* PIN setup overlay — shown first time user locks an entry */}
+      {showPinSetup && (
+        <PinGate
+          mode="setup"
+          onSuccess={() => {
+            setShowPinSetup(false);
+            setForm((p) => ({ ...p, meta: { ...(p.meta || {}), locked: true } }));
+            if (onPinSetupComplete) onPinSetupComplete();
+          }}
+          onReset={() => {}}
+          onClose={() => setShowPinSetup(false)}
+        />
       )}
       <div style={{ maxWidth: "820px", margin: "0 auto", padding: "30px 20px" }}>
         <div style={{ ...S.card(t), marginBottom: "24px" }}>

@@ -1,7 +1,8 @@
 import { THEMES, GF, S } from "../lib/constants.js";
 import { formatDate } from "../lib/helpers.js";
 
-export default function Contents({ entries, onOpen, onNew, onBack }) {
+export default function Contents({ entries, onOpen, onNew, onBack, lockedCount = 0, pinUnlocked = false, onOpenLockedFolder, onLockSession }) {
+  const totalCount = entries.length + (pinUnlocked ? 0 : lockedCount);
   return (
     <div style={{ minHeight: "100vh", background: "#fdf6e3", fontFamily: "'Lora',serif" }}>
       <style>{GF}</style>
@@ -10,7 +11,7 @@ export default function Contents({ entries, onOpen, onNew, onBack }) {
         <div style={{ textAlign: "center" }}>
           <div style={{ fontFamily: "'Caveat',cursive", fontSize: "2rem", color: "white", fontWeight: 700 }}>Our Adventure Book</div>
           <div style={{ color: "#fde68a", fontSize: "0.9rem", fontStyle: "italic" }}>
-            {entries.length} adventure{entries.length !== 1 ? "s" : ""} & counting... 🎈
+            {totalCount} adventure{totalCount !== 1 ? "s" : ""} & counting... 🎈
           </div>
         </div>
         <button onClick={onNew} style={S.btn("#fde68a", "#5c3d11", { fontWeight: 700 })}>+ New Adventure</button>
@@ -19,7 +20,7 @@ export default function Contents({ entries, onOpen, onNew, onBack }) {
         <h2 style={{ fontFamily: "'Caveat',cursive", fontSize: "2.4rem", color: "#5c3d11", borderBottom: "2px solid #e8c878", paddingBottom: "10px", marginBottom: "24px", marginTop: 0 }}>
           📋 Contents
         </h2>
-        {entries.length === 0 ? (
+        {entries.length === 0 && lockedCount === 0 ? (
           <div style={{ textAlign: "center", color: "#8B6914", padding: "70px 20px" }}>
             <div style={{ fontSize: "3.5rem", marginBottom: "14px" }}>🎈</div>
             <div style={{ fontFamily: "'Caveat',cursive", fontSize: "1.7rem" }}>No adventures yet!</div>
@@ -95,11 +96,57 @@ export default function Contents({ entries, onOpen, onNew, onBack }) {
                 </div>
                 {isIG && <span style={{ fontSize: "1rem", flexShrink: 0 }}>📱</span>}
                 {entry.customTheme && !isIG && <span title="Custom palette" style={{ fontSize: "1rem", flexShrink: 0 }}>🎨</span>}
+                {entry.meta?.locked && <span title="Private entry" style={{ fontSize: "1rem", flexShrink: 0 }}>🔒</span>}
                 <div style={{ color: isIG ? "#888" : t.accent, fontFamily: "'Caveat',cursive", fontSize: "1.4rem", flexShrink: 0 }}>→</div>
               </div>
             );
           })
         )}
+
+          {/* ── Private folder card ─────────────────────────────── */}
+          {lockedCount > 0 && !pinUnlocked && (
+            <div
+              onClick={onOpenLockedFolder}
+              style={{
+                display: "flex", alignItems: "center", gap: "16px",
+                padding: "14px 18px", marginTop: entries.length > 0 ? "18px" : 0,
+                borderRadius: "10px",
+                background: "white",
+                border: "2px dashed #e8c878",
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                transition: "transform 0.15s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.transform = "translateX(6px)")}
+              onMouseLeave={(e) => (e.currentTarget.style.transform = "translateX(0)")}
+            >
+              <div style={{ width: "56px", height: "56px", background: "#fdf6e3", borderRadius: "50%", border: "2px solid #e8c878", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem", flexShrink: 0 }}>
+                🔒
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: "'Caveat',cursive", fontSize: "1.4rem", color: "#5c3d11", fontWeight: 600 }}>
+                  Private
+                </div>
+                <div style={{ fontSize: "0.85rem", color: "#c2842a", fontStyle: "italic" }}>
+                  {lockedCount} hidden entr{lockedCount !== 1 ? "ies" : "y"} — tap to unlock
+                </div>
+              </div>
+              <div style={{ color: "#c2842a", fontFamily: "'Caveat',cursive", fontSize: "1.4rem", flexShrink: 0 }}>→</div>
+            </div>
+          )}
+
+          {lockedCount > 0 && pinUnlocked && (
+            <div style={{ marginTop: "18px", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", borderRadius: "8px", background: "#fdf6e3", border: "1.5px solid #e8c878" }}>
+              <span style={{ fontFamily: "'Caveat',cursive", color: "#8B4513", fontSize: "1.05rem" }}>🔓 Private entries unlocked for this session</span>
+              <button
+                onClick={onLockSession}
+                style={{ background: "none", border: "1px solid #e8c878", borderRadius: "6px", color: "#8B4513", fontSize: "0.82rem", cursor: "pointer", padding: "3px 10px", fontFamily: "'Lora',serif" }}
+              >
+                Lock again
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

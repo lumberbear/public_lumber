@@ -11,6 +11,7 @@ import EntryView from "./components/EntryView.jsx";
 import NewspaperView from "./components/NewspaperView.jsx";
 import InstagramProfile from "./components/InstagramProfile.jsx";
 import InstagramPost from "./components/InstagramPost.jsx";
+import PinGate, { pin } from "./components/PinGate.jsx";
 
 function emptyForm(template) {
   return {
@@ -209,6 +210,9 @@ export default function App() {
   const [editId, setEditId] = useState(null);
   const [avatars, setAvatars] = useState({ Ollythebigbear: null, Lillythebabyelephant: null });
   const [postIdx, setPostIdx] = useState(null);
+  const [pinUnlocked, setPinUnlocked] = useState(false);
+  const [showPinGate, setShowPinGate] = useState(false);
+  const [pinGateMode, setPinGateMode] = useState("unlock");
   const fileRef = useRef();
 
   useEffect(() => {
@@ -468,6 +472,36 @@ export default function App() {
     setView("contents");
   }
 
+  // ── PIN helpers ────────────────────────────────────────────────────────────
+  function openLockedFolder() {
+    const lockedEntries = entries.filter((e) => e.meta?.locked);
+    if (lockedEntries.length === 0) return;
+    if (!pin.exists()) {
+      setPinGateMode("other_device");
+    } else {
+      setPinGateMode("unlock");
+    }
+    setShowPinGate(true);
+  }
+
+  async function resetPin() {
+    if (!window.confirm("This will unlock all your private entries and clear your PIN. Nothing will be deleted. Continue?")) return;
+    const lockedEntries = entries.filter((e) => e.meta?.locked);
+    try {
+      for (const entry of lockedEntries) {
+        await api.saveEntry({ ...entry, meta: { ...(entry.meta || {}), locked: false } });
+      }
+    } catch (err) {
+      console.error("pin reset:", err);
+      alert("Could not unlock entries: " + err.message);
+      return;
+    }
+    pin.clear();
+    setPinUnlocked(false);
+    setShowPinGate(false);
+    await loadAll();
+  }
+
   if (!authReady) {
     return <LoadingScreen message="Loading Adventure Book..." />;
   }
@@ -509,6 +543,10 @@ export default function App() {
   const isIGEntry = current && current.template === "instagram";
   const isNewspaperEntry = current && current.template === "newspaper";
 
+  const lockedEntries = entries.filter((e) => e.meta?.locked);
+  const lockedCount   = lockedEntries.length;
+  const visibleEntries = pinUnlocked ? entries : entries.filter((e) => !e.meta?.locked);
+
   return (
     <div>
       <AccountMenu
@@ -526,7 +564,16 @@ export default function App() {
       {bookError && <div style={floatingErrorStyle}>{bookError}</div>}
       {view === "cover" && <Cover onOpen={() => setView("contents")} />}
       {view === "contents" && (
-        <Contents entries={entries} onOpen={openEntry} onNew={startNew} onBack={() => setView("cover")} />
+        <Contents
+          entries={visibleEntries}
+          onOpen={openEntry}
+          onNew={startNew}
+          onBack={() => setView("cover")}
+          lockedCount={lockedCount}
+          pinUnlocked={pinUnlocked}
+          onOpenLockedFolder={openLockedFolder}
+          onLockSession={() => setPinUnlocked(false)}
+        />
       )}
       {view === "picker" && (
         <TemplatePicker onPick={pickTemplate} onBack={() => setView("contents")} />
@@ -580,6 +627,20 @@ export default function App() {
           setAnalyzing={setAnalyzing}
           avatars={avatars}
           onAvatarChange={handleAvatarChange}
+          onPinSetupComplete={() => setPinUnlocked(true)}
+        />
+      )}
+
+      {/* ── PIN gate overlay ──────────────────────────────────── */}
+      {showPinGate && (
+        <PinGate
+          mode={pinGateMode}
+          onSuccess={() => {
+            setPinUnlocked(true);
+            setShowPinGate(false);
+          }}
+          onReset={resetPin}
+          onClose={() => setShowPinGate(false)}
         />
       )}
     </div>
